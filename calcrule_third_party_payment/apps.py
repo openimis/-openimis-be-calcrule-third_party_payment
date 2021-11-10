@@ -3,6 +3,8 @@ import inspect
 from django.apps import AppConfig
 from calculation.apps import CALCULATION_RULES
 
+from core.abs_calculation_rule import AbsCalculationRule
+
 
 MODULE_NAME = "calcrule_third_party_payment"
 DEFAULT_CFG = {}
