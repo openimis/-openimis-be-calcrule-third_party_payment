@@ -1,8 +1,15 @@
+import operator
+
 from .apps import AbsCalculationRule
 from .config import CLASS_RULE_PARAM_VALIDATION, \
     DESCRIPTION_CONTRIBUTION_VALUATION, FROM_TO
 from core.signals import *
 from core import datetime
+from django.contrib.contenttypes.models import ContentType
+from claim.models import ClaimItem, ClaimService
+from contribution_plan.models import PaymentPlan
+from product.models import Product
+from calcrule_third_party_payment.converters import ClaimsToBillConverter, ClaimToBillItemConverter
 
 
 class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
@@ -48,20 +55,135 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
 
     @classmethod
     def check_calculation(cls, instance):
-        pass
+        class_name = instance.__class__.__name__
+        match = False
+        if class_name == "PaymentPlan":
+            match = cls.uuid == instance.calculation
+        elif class_name == "BatchRun":
+            # BatchRun → Prodcut or Location if no prodcut
+            match = cls.check_calculation(instance.location)
+        elif class_name == "HealthFacility":
+            #  HF → location
+            match = cls.check_calculation(instance.location)
+        elif class_name == "Location":
+            #  location → ProductS (Product also related to Region if the location is a district)
+            if instance.type == "D":
+                products = Product.objects.filter(location=instance, validity_to__isnull=True)
+                for product in products:
+                    if cls.check_calculation(product):
+                        match = True
+                        break
+            match = cls.check_calculation(instance.location)
+        elif class_name == "Claim":
+            #  claim → claim product
+            products = cls.__get_products_from_claim(claim=instance)
+            # take the MAX Product id from item and services
+            if len(products) > 0:
+                product = max(products, key=operator.attrgetter('id'))
+                match = cls.check_calculation(product)
+        elif class_name == "Product":
+            # if product → paymentPlans
+            payment_plans = PaymentPlan.objects.filter(product=instance, is_deleted=False)
+            for pp in payment_plans:
+                if cls.check_calculation(pp):
+                    match = True
+                    break
+        return match
 
     @classmethod
-    def calculate(cls, instance, *args):
-        pass
+    def calculate(cls, instance, **kwargs):
+        class_name = instance.__class__.__name__
+        if instance.__class__.__name__ == "PaymentPlan":
+            date_from = kwargs.get('date_from', None)
+            date_to = kwargs.get('date_to', None)
+            product_id = kwargs.get('product_id', None)
+            location = kwargs.get('location', None)
+            # TODO get all “processed“ claims that should be evaluated with fee for service
+            #  that matches args (should replace the batch run)
+            pass
 
     @classmethod
     def get_linked_class(cls, sender, class_name, **kwargs):
-        pass
+        list_class = []
+        if class_name != None:
+            model_class = ContentType.objects.filter(model=class_name).first()
+            if model_class:
+                model_class = model_class.model_class()
+                list_class = list_class + \
+                             [f.remote_field.model.__name__ for f in model_class._meta.fields
+                              if f.get_internal_type() == 'ForeignKey' and f.remote_field.model.__name__ != "User"]
+        else:
+            list_class.append("Calculation")
+        # because we have calculation in PaymentPlan
+        #  as uuid - we have to consider this case
+        if class_name == "PaymentPlan":
+            list_class.append("Calculation")
+        return list_class
 
     @classmethod
+    @register_service_signal('convert_to_bill')
     def convert(cls, instance, convert_to, **kwargs):
-        pass
+        # check from signal before if invoice already exist for instance
+        results = {}
+        signal = REGISTERED_SERVICE_SIGNALS['convert_to_bill']
+        results_check_invoice_exist = signal.signal_results['before'][0][1]
+        if results_check_invoice_exist:
+            convert_from = instance.__class__.__name__
+            if convert_from == "QuerySet":
+                # get the model name from queryset
+                convert_from = instance.model.__name__
+                if convert_from == "Claim":
+                    results = cls._convert_claims(instance)
+            results['user'] = kwargs.get('user', None)
+        # after this method signal is sent to invoice module to save invoice data in db
+        return results
 
     @classmethod
     def convert_batch(cls, **kwargs):
         pass
+
+    @classmethod
+    def _convert_claims(cls, instance):
+        products = cls.__get_products_from_claim_queryset(claim_queryset=instance)
+        # take the MAX Product id from item and services
+        if len(products) > 0:
+            product = max(products, key=operator.attrgetter('id'))
+            bill = ClaimsToBillConverter.to_bill_obj(claims=instance, product=product)
+            bill_line_items = []
+            for claim in instance.all():
+                bill_line_item = ClaimToBillItemConverter.to_bill_line_item_obj(claim=claim)
+                bill_line_items.append(bill_line_item)
+            return {
+                'bill_data': bill,
+                'bill_data_line': bill_line_items,
+                'type_conversion': 'claims queryset-bill'
+            }
+
+    @classmethod
+    def __get_products_from_claim_queryset(cls, claim_queryset):
+        products = []
+        # get the clam product from claim item and claim services
+        for claim in claim_queryset.all():
+            for svc_item in [ClaimItem, ClaimService]:
+                claim_details = svc_item.objects \
+                    .filter(claim__id=claim.id) \
+                    .filter(claim__validity_to__isnull=True) \
+                    .filter(validity_to__isnull=True)
+                for cd in claim_details:
+                    if cd.product:
+                        products.append(cd.product)
+        return products
+
+    @classmethod
+    def __get_products_from_claim(cls, claim):
+        products = []
+        # get the clam product from claim item and claim services
+        for svc_item in [ClaimItem, ClaimService]:
+            claim_details = svc_item.objects \
+                .filter(claim__id=claim.id) \
+                .filter(claim__validity_to__isnull=True) \
+                .filter(validity_to__isnull=True)
+            for cd in claim_details:
+                if cd.product:
+                    products.append(cd.product)
+        return products

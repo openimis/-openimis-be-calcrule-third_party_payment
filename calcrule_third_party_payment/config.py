@@ -1,7 +1,7 @@
 CLASS_RULE_PARAM_VALIDATION = []
 
 FROM_TO = [
-        {"from": "BatchRun", "to": "Bill"},
+        {"from": "QuerySet", "to": "Bill"},
         {"from": "Claim", "to": "BillItem"}
 ]
 
