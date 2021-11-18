@@ -122,11 +122,11 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
     @classmethod
     @register_service_signal('convert_to_bill')
     def convert(cls, instance, convert_to, **kwargs):
-        # check from signal before if invoice already exist for instance
+        # check from signal before if bill already exist for instance
         results = {}
         signal = REGISTERED_SERVICE_SIGNALS['convert_to_bill']
-        results_check_invoice_exist = signal.signal_results['before'][0][1]
-        if results_check_invoice_exist:
+        results_check_bill_exist = signal.signal_results['before'][0][1]
+        if results_check_bill_exist:
             convert_from = instance.__class__.__name__
             if convert_from == "QuerySet":
                 # get the model name from queryset
@@ -134,7 +134,7 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
                 if convert_from == "Claim":
                     results = cls._convert_claims(instance)
             results['user'] = kwargs.get('user', None)
-        # after this method signal is sent to invoice module to save invoice data in db
+        # after this method signal is sent to invoice module to save bill data in db
         return results
 
     @classmethod

@@ -67,7 +67,7 @@ class ClaimsToBillConverter(object):
         bill["terms"] = product.name
 
     @classmethod
-    def build_amounts(cls, line_item, invoice_update):
-        invoice_update["amount_net"] = line_item["amount_net"]
-        invoice_update["amount_total"] = line_item["amount_total"]
-        invoice_update["amount_discount"] = 0 if line_item["discount"] else line_item["discount"]
+    def build_amounts(cls, line_item, bill_update):
+        bill_update["amount_net"] = line_item["amount_net"]
+        bill_update["amount_total"] = line_item["amount_total"]
+        bill_update["amount_discount"] = 0 if line_item["discount"] else line_item["discount"]
