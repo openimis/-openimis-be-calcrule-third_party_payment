@@ -6,7 +6,8 @@ from .config import CLASS_RULE_PARAM_VALIDATION, \
 from core.signals import *
 from core import datetime
 from django.contrib.contenttypes.models import ContentType
-from claim.models import ClaimItem, ClaimService
+from django.db.models import Q
+from claim.models import Claim, ClaimItem, ClaimService
 from contribution_plan.models import PaymentPlan
 from product.models import Product
 from calcrule_third_party_payment.converters import ClaimsToBillConverter, ClaimToBillItemConverter
@@ -139,7 +140,32 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
 
     @classmethod
     def convert_batch(cls, **kwargs):
-        pass
+        function_arguments = kwargs.get('data')[1]
+        date_from = function_arguments.get('from_date', None)
+        date_to = function_arguments.get('to_date', None)
+        user = function_arguments.get('user', None)
+        product = function_arguments.get('product', None)
+
+        # create queryset based on provided params
+        claim_queryset = Claim.objects.filter(validity_to=None, batch_run__isnull=False, health_facility__isnull=False)
+        if date_from and date_to:
+            claim_queryset = claim_queryset.filter(date_from__gte=date_from, date_from__lte=date_to)
+        if product:
+            list_claims_products = list(
+                claim_queryset \
+                    .filter(Q(services__product=product) \
+                            | Q(items__product=product)) \
+                    .values_list('id', flat=True).distinct()
+            )
+            claim_queryset = claim_queryset.filter(id__in=list_claims_products)
+
+        claim_br_hf_list = list(claim_queryset.values('batch_run', 'health_facility').distinct())
+        for cbh in claim_br_hf_list:
+            claim_queryset_by_br_hf = Claim.objects.filter(
+                batch_run__id=cbh["batch_run"], health_facility__id=cbh["health_facility"]
+            )
+            # take all claims related to the same HF and batch_run to convert to bill
+            cls.run_convert(instance=claim_queryset_by_br_hf, convert_to='Bill', user=user)
 
     @classmethod
     def _convert_claims(cls, instance):
