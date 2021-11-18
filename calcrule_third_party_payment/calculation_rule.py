@@ -58,22 +58,21 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
         class_name = instance.__class__.__name__
         match = False
         if class_name == "PaymentPlan":
-            match = cls.uuid == instance.calculation
+            match = cls.uuid == str(instance.calculation)
         elif class_name == "BatchRun":
-            # BatchRun → Prodcut or Location if no prodcut
+            # BatchRun → Product or Location if no prodcut
             match = cls.check_calculation(instance.location)
         elif class_name == "HealthFacility":
             #  HF → location
             match = cls.check_calculation(instance.location)
         elif class_name == "Location":
             #  location → ProductS (Product also related to Region if the location is a district)
-            if instance.type == "D":
+            if instance.type in ["D", "R"]:
                 products = Product.objects.filter(location=instance, validity_to__isnull=True)
                 for product in products:
                     if cls.check_calculation(product):
                         match = True
                         break
-            match = cls.check_calculation(instance.location)
         elif class_name == "Claim":
             #  claim → claim product
             products = cls.__get_products_from_claim(claim=instance)
@@ -83,7 +82,7 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
                 match = cls.check_calculation(product)
         elif class_name == "Product":
             # if product → paymentPlans
-            payment_plans = PaymentPlan.objects.filter(product=instance, is_deleted=False)
+            payment_plans = PaymentPlan.objects.filter(benefit_plan=instance, is_deleted=False)
             for pp in payment_plans:
                 if cls.check_calculation(pp):
                     match = True
