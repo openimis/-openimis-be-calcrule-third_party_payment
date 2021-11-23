@@ -122,7 +122,7 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
         return list_class
 
     @classmethod
-    @register_service_signal('convert_to_bill')
+    @register_service_signal('signal_before_and_after_calcrule_third_party_payment_module_process_convert_service')
     def convert(cls, instance, convert_to, **kwargs):
         # check from signal before if bill already exist for instance
         results = {}
