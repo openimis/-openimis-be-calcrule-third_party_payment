@@ -11,6 +11,7 @@ from claim.models import Claim, ClaimItem, ClaimService
 from contribution_plan.models import PaymentPlan
 from product.models import Product
 from calcrule_third_party_payment.converters import ClaimsToBillConverter, ClaimToBillItemConverter
+from core.models import User
 
 
 class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
@@ -141,13 +142,20 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
     @classmethod
     def convert_batch(cls, **kwargs):
         function_arguments = kwargs.get('data')[1]
-        date_from = function_arguments.get('from_date', None)
-        date_to = function_arguments.get('to_date', None)
-        user = function_arguments.get('user', None)
-        product = function_arguments.get('product', None)
+        sender = kwargs.get('sender', None)
+        # possible parameters from kwargs
+        date_from, date_to, user, product = cls._get_kwargs_params(function_arguments)
+        # parameters from batch_run signal
+        audit_user_id, location_id, period, year = cls._get_batch_run_params(function_arguments, sender)
+        # if this is trigerred by batch_run - take user data from audit_user_id
+        if user is None and audit_user_id:
+            user = User.objects.filter(i_user__id=audit_user_id).first()
 
         # create queryset based on provided params
         claim_queryset = Claim.objects.filter(validity_to=None, batch_run__isnull=False, health_facility__isnull=False)
+        # take the location from batch_run data
+        if location_id:
+            claim_queryset = claim_queryset.filter(batch_run__location__id=location_id)
         if date_from and date_to:
             claim_queryset = claim_queryset.filter(date_from__gte=date_from, date_from__lte=date_to)
         if product:
@@ -159,6 +167,8 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
             )
             claim_queryset = claim_queryset.filter(id__in=list_claims_products)
 
+        # split querysets of Claims into queryset of Claims
+        # with the same batch_run id and health_facility
         claim_br_hf_list = list(claim_queryset.values('batch_run', 'health_facility').distinct())
         for cbh in claim_br_hf_list:
             claim_queryset_by_br_hf = Claim.objects.filter(
@@ -166,6 +176,27 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
             )
             # take all claims related to the same HF and batch_run to convert to bill
             cls.run_convert(instance=claim_queryset_by_br_hf, convert_to='Bill', user=user)
+
+    @classmethod
+    def _get_kwargs_params(cls, function_arguments):
+        date_from = function_arguments.get('from_date', None)
+        date_to = function_arguments.get('to_date', None)
+        user = function_arguments.get('user', None)
+        product = function_arguments.get('product', None)
+        return date_from, date_to, user, product
+
+    @classmethod
+    def _get_batch_run_params(cls, function_arguments, sender):
+        if sender and sender.__name__ == "BillService":
+            audit_user_id = function_arguments.get('sender', None)
+            params_signal_batch_run = function_arguments.get('data', ())[0]
+            len_signal_br_params = len(params_signal_batch_run)
+            location_id = params_signal_batch_run[0] if len_signal_br_params > 0 else None
+            period = params_signal_batch_run[1] if len_signal_br_params > 0 else None
+            year = params_signal_batch_run[2] if len_signal_br_params > 0 else None
+            return audit_user_id, location_id, period, year
+        else:
+            return None, None, None, None
 
     @classmethod
     def _convert_claims(cls, instance):

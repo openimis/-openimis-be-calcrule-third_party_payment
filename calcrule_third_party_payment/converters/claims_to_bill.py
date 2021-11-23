@@ -47,6 +47,7 @@ class ClaimsToBillConverter(object):
         bill["date_due"] = batch_run.run_date + datetimedelta(days=30)
         bill["date_bill"] = batch_run.run_date
         bill["date_valid_from"] = batch_run.run_date
+        # TODO - explain/clarify meaning of 'validity to' of this field
         #bill["date_valid_to"] = batch_run.expiry_date
 
     @classmethod
