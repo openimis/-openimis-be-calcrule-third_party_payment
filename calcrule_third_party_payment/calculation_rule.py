@@ -1,8 +1,9 @@
 import operator
 
-from .apps import AbsCalculationRule
-from .config import CLASS_RULE_PARAM_VALIDATION, \
+from calcrule_third_party_payment.apps import AbsCalculationRule
+from calcrule_third_party_payment.config import CLASS_RULE_PARAM_VALIDATION, \
     DESCRIPTION_CONTRIBUTION_VALUATION, FROM_TO
+from calcrule_third_party_payment.utils import check_bill_exist, save_bill_in_db
 from core.signals import *
 from core import datetime
 from django.contrib.contenttypes.models import ContentType
@@ -122,13 +123,9 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
         return list_class
 
     @classmethod
-    @register_service_signal('signal_before_and_after_calcrule_third_party_payment_module_process_convert_service')
     def convert(cls, instance, convert_to, **kwargs):
-        # check from signal before if bill already exist for instance
         results = {}
-        signal = REGISTERED_SERVICE_SIGNALS['convert_to_bill']
-        results_check_bill_exist = signal.signal_results['before'][0][1]
-        if results_check_bill_exist:
+        if check_bill_exist(instance, convert_to):
             convert_from = instance.__class__.__name__
             if convert_from == "QuerySet":
                 # get the model name from queryset
@@ -136,7 +133,7 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
                 if convert_from == "Claim":
                     results = cls._convert_claims(instance)
             results['user'] = kwargs.get('user', None)
-        # after this method signal is sent to invoice module to save bill data in db
+            save_bill_in_db(results)
         return results
 
     @classmethod
