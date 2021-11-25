@@ -138,12 +138,11 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
 
     @classmethod
     def convert_batch(cls, **kwargs):
-        function_arguments = kwargs.get('data')[1]
         sender = kwargs.get('sender', None)
         # possible parameters from kwargs
-        date_from, date_to, user, product = cls._get_kwargs_params(function_arguments)
+        date_from, date_to, user, product = cls._get_kwargs_params(kwargs)
         # parameters from batch_run signal
-        audit_user_id, location_id, period, year = cls._get_batch_run_params(function_arguments, sender)
+        audit_user_id, location_id, period, year = cls._get_batch_run_params(kwargs, sender)
         # if this is trigerred by batch_run - take user data from audit_user_id
         if user is None and audit_user_id:
             user = User.objects.filter(i_user__id=audit_user_id).first()
@@ -176,15 +175,16 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
 
     @classmethod
     def _get_kwargs_params(cls, function_arguments):
-        date_from = function_arguments.get('from_date', None)
-        date_to = function_arguments.get('to_date', None)
-        user = function_arguments.get('user', None)
-        product = function_arguments.get('product', None)
+        data = function_arguments.get('data')[1]
+        date_from = data.get('from_date', None)
+        date_to = data.get('to_date', None)
+        user = data.get('user', None)
+        product = data.get('product', None)
         return date_from, date_to, user, product
 
     @classmethod
     def _get_batch_run_params(cls, function_arguments, sender):
-        if sender and sender.__name__ == "BillService":
+        if sender:
             audit_user_id = function_arguments.get('sender', None)
             params_signal_batch_run = function_arguments.get('data', ())[0]
             len_signal_br_params = len(params_signal_batch_run)
