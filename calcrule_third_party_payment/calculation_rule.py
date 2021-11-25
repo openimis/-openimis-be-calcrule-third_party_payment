@@ -3,7 +3,8 @@ import operator
 from calcrule_third_party_payment.apps import AbsCalculationRule
 from calcrule_third_party_payment.config import CLASS_RULE_PARAM_VALIDATION, \
     DESCRIPTION_CONTRIBUTION_VALUATION, FROM_TO
-from calcrule_third_party_payment.utils import check_bill_exist, save_bill_in_db
+from calcrule_third_party_payment.utils import check_bill_exist
+from invoice.services import BillService
 from core.signals import *
 from core import datetime
 from django.contrib.contenttypes.models import ContentType
@@ -133,7 +134,7 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
                 if convert_from == "Claim":
                     results = cls._convert_claims(instance)
             results['user'] = kwargs.get('user', None)
-            save_bill_in_db(results)
+            BillService.bill_create(convert_results=results)
         return results
 
     @classmethod
