@@ -5,7 +5,7 @@ from calcrule_third_party_payment.calculation_rule import ThirdPartyPaymentCalcu
 
 def bind_service_signals():
     bind_service_signal(
-        'signal_after_claim_batch_module_process_batch_run_service',
+        'signal_after_claim_batch_module_process_batch_service',
         ThirdPartyPaymentCalculationRule.convert_batch,
         bind_type=ServiceSignalBindType.AFTER
     )
