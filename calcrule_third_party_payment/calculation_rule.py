@@ -52,9 +52,9 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
                 cls.signal_convert_from_to.connect(cls.run_convert, dispatch_uid="on_convert_from_to")
 
     @classmethod
-    def active_for_object(cls, instance, context, type, sub_type):
+    def active_for_object(cls, instance, context, type='account_payable', sub_type='third_party_payment'):
         return instance.__class__.__name__ == "PaymentPlan" \
-               and context in ["submit"] \
+               and context in ["submit", "BatchPayment"] \
                and cls.check_calculation(instance)
 
     @classmethod
@@ -96,14 +96,12 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
     @classmethod
     def calculate(cls, instance, **kwargs):
         class_name = instance.__class__.__name__
+        # get all “processed“ claims that should be evaluated with fee for service
+        #  that matches args (should replace the batch run)
         if instance.__class__.__name__ == "PaymentPlan":
-            date_from = kwargs.get('date_from', None)
-            date_to = kwargs.get('date_to', None)
-            product_id = kwargs.get('product_id', None)
-            location = kwargs.get('location', None)
-            # TODO get all “processed“ claims that should be evaluated with fee for service
-            #  that matches args (should replace the batch run)
-            pass
+            work_data = kwargs.get('work_data', None)
+            cls.convert_batch(work_data=work_data)
+            return "conversion finished 'fee for service'"
 
     @classmethod
     def get_linked_class(cls, sender, class_name, **kwargs):
@@ -139,62 +137,18 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
 
     @classmethod
     def convert_batch(cls, **kwargs):
-        sender = kwargs.get('sender', None)
-        # possible parameters from kwargs
-        date_from, date_to, user, product = cls._get_kwargs_params(kwargs)
-        # parameters from batch_run signal
-        audit_user_id, location_id, period, year = cls._get_batch_run_params(kwargs, sender)
-        # if this is trigerred by batch_run - take user data from audit_user_id
-        if user is None and audit_user_id:
-            user = User.objects.filter(i_user__id=audit_user_id).first()
-
-        # create queryset based on provided params
-        claim_queryset = Claim.objects.filter(validity_to=None, batch_run__isnull=False, health_facility__isnull=False)
-        # take the location from batch_run data
-        if location_id:
-            claim_queryset = claim_queryset.filter(batch_run__location__id=location_id)
-        if date_from and date_to:
-            claim_queryset = claim_queryset.filter(date_from__gte=date_from, date_from__lte=date_to)
-        if product:
-            list_claims_products = list(
-                claim_queryset \
-                    .filter(Q(services__product=product) \
-                            | Q(items__product=product)) \
-                    .values_list('id', flat=True).distinct()
-            )
-            claim_queryset = claim_queryset.filter(id__in=list_claims_products)
-
-        # split querysets of Claims into queryset of Claims
-        # with the same batch_run id and health_facility
-        claim_br_hf_list = list(claim_queryset.values('batch_run', 'health_facility').distinct())
-        for cbh in claim_br_hf_list:
-            claim_queryset_by_br_hf = Claim.objects.filter(
-                batch_run__id=cbh["batch_run"], health_facility__id=cbh["health_facility"]
-            )
-            # take all claims related to the same HF and batch_run to convert to bill
-            cls.run_convert(instance=claim_queryset_by_br_hf, convert_to='Bill', user=user)
-
-    @classmethod
-    def _get_kwargs_params(cls, function_arguments):
-        data = function_arguments.get('data')[1]
-        date_from = data.get('from_date', None)
-        date_to = data.get('to_date', None)
-        user = data.get('user', None)
-        product = data.get('product', None)
-        return date_from, date_to, user, product
-
-    @classmethod
-    def _get_batch_run_params(cls, function_arguments, sender):
-        if sender:
-            audit_user_id = function_arguments.get('sender', None)
-            params_signal_batch_run = function_arguments.get('data', ())[0]
-            len_signal_br_params = len(params_signal_batch_run)
-            location_id = params_signal_batch_run[0] if len_signal_br_params > 0 else None
-            period = params_signal_batch_run[1] if len_signal_br_params > 0 else None
-            year = params_signal_batch_run[2] if len_signal_br_params > 0 else None
-            return audit_user_id, location_id, period, year
-        else:
-            return None, None, None, None
+        work_data = kwargs.get('work_data', None)
+        if work_data:
+            user = User.objects.filter(i_user__id=work_data['created_run'].audit_user_id).first()
+            # create queryset based on provided params
+            claim_queryset = Claim.objects.filter(validity_to=None, batch_run=work_data['created_run'], health_facility__isnull=False)
+            claim_br_hf_list = list(claim_queryset.values('batch_run', 'health_facility').distinct())
+            for cbh in claim_br_hf_list:
+                claim_queryset_by_br_hf = Claim.objects.filter(
+                    batch_run__id=cbh["batch_run"], health_facility__id=cbh["health_facility"]
+                )
+                # take all claims related to the same HF and batch_run to convert to bill
+                cls.run_convert(instance=claim_queryset_by_br_hf, convert_to='Bill', user=user)
 
     @classmethod
     def _convert_claims(cls, instance):
