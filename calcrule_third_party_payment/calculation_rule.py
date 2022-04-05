@@ -3,7 +3,8 @@ import operator
 from calcrule_third_party_payment.apps import AbsCalculationRule
 from calcrule_third_party_payment.config import CLASS_RULE_PARAM_VALIDATION, \
     DESCRIPTION_CONTRIBUTION_VALUATION, FROM_TO
-from calcrule_third_party_payment.utils import check_bill_exist
+from calcrule_third_party_payment.utils import check_bill_exist, \
+    claim_batch_valuation, update_claim_valuated
 from invoice.services import BillService
 from core.signals import *
 from core import datetime
@@ -54,14 +55,16 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
     @classmethod
     def active_for_object(cls, instance, context, type='account_payable', sub_type='third_party_payment'):
         return instance.__class__.__name__ == "PaymentPlan" \
-               and context in ["submit", "BatchPayment"] \
+               and context in ["BatchValuate", "BatchPayment", "IndividualPayment", "IndividualValuation"] \
                and cls.check_calculation(instance)
 
     @classmethod
     def check_calculation(cls, instance):
         class_name = instance.__class__.__name__
         match = False
-        if class_name == "PaymentPlan":
+        if class_name == "ABCMeta":
+            match = str(cls.uuid) == str(instance.uuid)
+        elif class_name == "PaymentPlan":
             match = cls.uuid == str(instance.calculation)
         elif class_name == "BatchRun":
             # BatchRun → Product or Location if no prodcut
@@ -94,7 +97,7 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
         return match
 
     @classmethod
-    def calculate(cls, instance, **kwargs):
+    def calculate_old(cls, instance, **kwargs):
         class_name = instance.__class__.__name__
         # get all “processed“ claims that should be evaluated with fee for service
         #  that matches args (should replace the batch run)
@@ -102,6 +105,24 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
             work_data = kwargs.get('work_data', None)
             cls.convert_batch(work_data=work_data)
             return "conversion finished 'fee for service'"
+
+    @classmethod
+    def calculate(cls, instance, **kwargs):
+        context = kwargs.get('context', None)
+        class_name = instance.__class__.__name__
+        if instance.__class__.__name__ == "PaymentPlan":
+            if context == "BatchPayment":
+                work_data = kwargs.get('work_data', None)
+                cls.convert_batch(work_data=work_data)
+                return "conversion finished 'fee for service'"
+            elif context == "BatchValuate":
+                work_data = kwargs.get('work_data', None)
+                claim_batch_valuation(work_data)
+                update_claim_valuated(work_data['claims'], work_data['created_run'])
+            elif context == "IndividualPayment":
+                pass
+            elif context == "IndividualValuation":
+                pass
 
     @classmethod
     def get_linked_class(cls, sender, class_name, **kwargs):
