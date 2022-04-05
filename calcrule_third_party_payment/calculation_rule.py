@@ -97,16 +97,6 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
         return match
 
     @classmethod
-    def calculate_old(cls, instance, **kwargs):
-        class_name = instance.__class__.__name__
-        # get all “processed“ claims that should be evaluated with fee for service
-        #  that matches args (should replace the batch run)
-        if instance.__class__.__name__ == "PaymentPlan":
-            work_data = kwargs.get('work_data', None)
-            cls.convert_batch(work_data=work_data)
-            return "conversion finished 'fee for service'"
-
-    @classmethod
     def calculate(cls, instance, **kwargs):
         context = kwargs.get('context', None)
         class_name = instance.__class__.__name__
@@ -119,6 +109,7 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
                 work_data = kwargs.get('work_data', None)
                 claim_batch_valuation(work_data)
                 update_claim_valuated(work_data['claims'], work_data['created_run'])
+                return "valuation finished 'fee for service'"
             elif context == "IndividualPayment":
                 pass
             elif context == "IndividualValuation":
