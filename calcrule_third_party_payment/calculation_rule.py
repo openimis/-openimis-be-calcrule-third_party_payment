@@ -107,7 +107,7 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
                 return "conversion finished 'fee for service'"
             elif context == "BatchValuate":
                 work_data = kwargs.get('work_data', None)
-                claim_batch_valuation(work_data)
+                claim_batch_valuation(instance, work_data)
                 update_claim_valuated(work_data['claims'], work_data['created_run'])
                 return "valuation finished 'fee for service'"
             elif context == "IndividualPayment":
