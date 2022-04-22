@@ -562,6 +562,11 @@ CLASS_RULE_PARAM_VALIDATION = [
       }
    ]
 },
+{
+        "class": "Product",
+        "parameters": [
+            ]
+    },
 ]
 
 
