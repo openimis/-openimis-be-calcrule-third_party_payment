@@ -2,7 +2,7 @@ import json
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Value, F, Sum, Q, Prefetch, Count, Subquery, OuterRef
 from django.db.models.functions import Coalesce
-from claim.models import ClaimItem, Claim, ClaimService
+from claim.models import ClaimItem, Claim, ClaimService, STATUS_VALUATED 
 from claim_batch.models import RelativeIndex, RelativeDistribution
 from claim_batch.services import  get_hospital_claim_filter, get_period
 from invoice.models import BillItem
@@ -155,4 +155,4 @@ def update_claim_valuated(claims,  batch_run):
     # 4 update the claim Total amounts if all Item and services got "valuated"
     items = ClaimItem.objects.filter(claim=OuterRef('pk')).filter(legacy_id__isnull=True).aggregate(items_sum=Sum('price_valuated')).order_by('claim')
     services = ClaimService.objects.filter(claim=OuterRef('pk')).filter(legacy_id__isnull=True).aggregate(services_sum=Sum('price_valuated')).order_by('claim')
-    claims.update(remunerated = Coalesce(Subquery(items.items_sum), 0) +  Coalesce(Subquery(services.services_sum), 0),  )
+    claims.update(status = STATUS_VALUATED , batch_run  = batch_run  , remunerated = Coalesce(Subquery(items.items_sum), 0) +  Coalesce(Subquery(services.services_sum), 0),  )
