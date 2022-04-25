@@ -561,12 +561,7 @@ CLASS_RULE_PARAM_VALIDATION = [
          "relevance": " 12 % OBJECT.periodicity = 0"
       }
    ]
-},
-{
-        "class": "Product",
-        "parameters": [
-            ]
-    },
+}
 ]
 
 
