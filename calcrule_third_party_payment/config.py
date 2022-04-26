@@ -394,7 +394,7 @@ CLASS_RULE_PARAM_VALIDATION = [
 					"update": "121003",
 					"replace": "121006"
 				},
-				"relevance": "1 % OBJECT.periodicity == 0"
+				"relevance": "MOD( 1, OBJECT.periodicity) == 0"
 			},
 			{
 				"type": "number",
@@ -410,7 +410,7 @@ CLASS_RULE_PARAM_VALIDATION = [
 					"update": "121003",
 					"replace": "121006"
 				},
-				"relevance": "2 % OBJECT.periodicity == 0"
+				"relevance": "MOD( 2, OBJECT.periodicity) == 0"
 			},
 			{
 				"type": "number",
@@ -426,7 +426,7 @@ CLASS_RULE_PARAM_VALIDATION = [
 					"update": "121003",
 					"replace": "121006"
 				},
-				"relevance": "3 % OBJECT.periodicity == 0"
+				"relevance": "MOD( 3, OBJECT.periodicity) == 0"
 			},
 			{
 				"type": "number",
@@ -442,7 +442,7 @@ CLASS_RULE_PARAM_VALIDATION = [
 					"update": "121003",
 					"replace": "121006"
 				},
-				"relevance": " 1 % OBJECT.periodicity == 0"
+				"relevance": " MOD( 1, OBJECT.periodicity) == 0"
 			},
 			{
 				"type": "number",
@@ -458,7 +458,7 @@ CLASS_RULE_PARAM_VALIDATION = [
 					"update": "121003",
 					"replace": "121006"
 				},
-				"relevance": "5 % OBJECT.periodicity == 0"
+				"relevance": "MOD( 5, OBJECT.periodicity) == 0"
 			},
 			{
 				"type": "number",
@@ -474,7 +474,7 @@ CLASS_RULE_PARAM_VALIDATION = [
 					"update": "121003",
 					"replace": "121006"
 				},
-				"relevance": "6 % OBJECT.periodicity == 0"
+				"relevance": "MOD( 6, OBJECT.periodicity) == 0"
 			},
 			{
 				"type": "number",
@@ -490,7 +490,7 @@ CLASS_RULE_PARAM_VALIDATION = [
 					"update": "121003",
 					"replace": "121006"
 				},
-				"relevance": "7 % OBJECT.periodicity == 0"
+				"relevance": "MOD( 7, OBJECT.periodicity) == 0"
 			},
 			{
 				"type": "number",
@@ -506,12 +506,12 @@ CLASS_RULE_PARAM_VALIDATION = [
 					"update": "121003",
 					"replace": "121006"
 				},
-				"relevance": " 8 % OBJECT.periodicity == 0"
+				"relevance": " MOD( 8, OBJECT.periodicity) == 0"
 			},
 			{
 				"type": "number",
 				"default": "0",
-				"name": "distr_9",
+				"name": "distr_1",
 				"label": {
 					"en": "distribution 9",
 					"fr": "distribution 9"
@@ -522,7 +522,7 @@ CLASS_RULE_PARAM_VALIDATION = [
 					"update": "121003",
 					"replace": "121006"
 				},
-				"relevance": " 9 % OBJECT.periodicity == 0"
+				"relevance": " MOD( 9, OBJECT.periodicity) == 0"
 			},
 			{
 				"type": "number",
@@ -538,7 +538,7 @@ CLASS_RULE_PARAM_VALIDATION = [
 					"update": "121003",
 					"replace": "121006"
 				},
-				"relevance": " 10 % OBJECT.periodicity == 0"
+				"relevance": " MOD( 10, OBJECT.periodicity) == 0"
 			},
 			{
 				"type": "number",
@@ -554,7 +554,7 @@ CLASS_RULE_PARAM_VALIDATION = [
 					"update": "121003",
 					"replace": "121006"
 				},
-				"relevance": " 11 % OBJECT.periodicity == 0"
+				"relevance": " MOD( 11, OBJECT.periodicity) == 0"
 			},
 			{
 				"type": "number",
@@ -570,7 +570,7 @@ CLASS_RULE_PARAM_VALIDATION = [
 					"update": "121003",
 					"replace": "121006"
 				},
-				"relevance": " 12 % OBJECT.periodicity == 0"
+				"relevance": " MOD( 12, OBJECT.periodicity) == 0"
 			}
 		]
 	}
