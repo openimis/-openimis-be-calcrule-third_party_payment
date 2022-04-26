@@ -511,7 +511,7 @@ CLASS_RULE_PARAM_VALIDATION = [
 			{
 				"type": "number",
 				"default": "0",
-				"name": "distr_1",
+				"name": "distr_9",
 				"label": {
 					"en": "distribution 9",
 					"fr": "distribution 9"
