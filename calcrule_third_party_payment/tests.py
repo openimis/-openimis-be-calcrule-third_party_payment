@@ -32,7 +32,6 @@ from product.test_helpers import (
     create_test_product_item,
 )
 
-
 _TEST_USER_NAME = "test_batch_run"
 _TEST_USER_PASSWORD = "test_batch_run"
 _TEST_DATA_USER = {
@@ -67,7 +66,7 @@ class BatchRunTest(TestCase):
         item = create_test_item("A", custom_props={"name": "test_simple_batch"})
 
         product = create_test_product(
-            "BCUL0002",
+            "BCUL0001",
             custom_props={
                 "name": "simplebatch",
                 "lump_sum": 10_000,
@@ -75,30 +74,39 @@ class BatchRunTest(TestCase):
         )
         payment_plan = create_test_payment_plan(
             product=product,
-            periodicity = 12,
+            periodicity=1,
             calculation="0a1b6d54-eef4-4ee6-ac47-2a99cfa5e9a8",
             custom_props={
-                'date_valid_from': '2019-01-01', 
+                'date_valid_from': '2019-01-01',
                 'date_valid_to': '2050-01-01',
                 'json_ext': {
-                    'hf_level_1':'H',
-                    'hf_level_2':'D',
-                    'hf_level_3':'C',
-                    'distr_1':100,
-                    'distr_2':100,
-                    'distr_3':100,
-                    'distr_4':100,
-                    'distr_5':100,
-                    'distr_6':100,
-                    'distr_7':100,
-                    'distr_8':100,
-                    'distr_9':100,
-                    'distr_10':100,
-                    'distr_11':100,
-                    'distr_12':100
+                    'calculation_rule': {
+                        'hf_level_1': 'H',
+                        'hf_sublevel_1': "null",
+                        'hf_level_2': 'D',
+                        'hf_sublevel_2': "null",
+                        'hf_level_3': 'C',
+                        'hf_sublevel_3': "null",
+                        'hf_level_4': "null",
+                        'hf_sublevel_4': "null",
+                        'distr_1': 100,
+                        'distr_2': 100,
+                        'distr_3': 100,
+                        'distr_4': 100,
+                        'distr_5': 100,
+                        'distr_6': 100,
+                        'distr_7': 100,
+                        'distr_8': 100,
+                        'distr_9': 100,
+                        'distr_10': 100,
+                        'distr_11': 100,
+                        'distr_12': 100,
+                        'claim_type': 'B'
+                    }
                 }
             }
         )
+
         product_service = create_test_product_service(
             product,
             service,
@@ -127,10 +135,9 @@ class BatchRunTest(TestCase):
         errors = validate_and_process_dedrem_claim(claim1, self.user, True)
         _, days_in_month = calendar.monthrange(claim1.validity_from.year, claim1.validity_from.month)
         # add process stamp for claim to not use the process_stamp with now()
-        claim1.process_stamp = datetime.datetime(claim1.validity_from.year, claim1.validity_from.month, days_in_month - 1)
+        claim1.process_stamp = datetime.datetime(claim1.validity_from.year, claim1.validity_from.month,
+                                                 days_in_month - 1)
         claim1.save()
-        
-        
 
         self.assertEqual(len(errors), 0)
         self.assertEqual(
@@ -144,7 +151,7 @@ class BatchRunTest(TestCase):
         self.assertEquals(dedrem.rem_g, 500)  # 100*2 + 100*3
 
         # When
-        
+
         end_date = datetime.datetime(claim1.validity_from.year, claim1.validity_from.month, days_in_month)
 
         batch_run = do_process_batch(
