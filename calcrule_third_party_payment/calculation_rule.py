@@ -4,8 +4,10 @@ from calcrule_third_party_payment.apps import AbsCalculationRule
 from calcrule_third_party_payment.config import CLASS_RULE_PARAM_VALIDATION, \
     DESCRIPTION_CONTRIBUTION_VALUATION, FROM_TO
 from calcrule_third_party_payment.utils import check_bill_exist, \
-    claim_batch_valuation, update_claim_valuated
+    claim_batch_valuation,  get_hospital_level_filter, obtain_calcrule_params
 from invoice.services import BillService
+
+from claim_batch.services import get_hospital_claim_filter, update_claim_valuated
 from core.signals import *
 from core import datetime
 from django.contrib.contenttypes.models import ContentType
@@ -107,6 +109,16 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
                 return "conversion finished 'fee for service'"
             elif context == "BatchValuate":
                 work_data = kwargs.get('work_data', None)
+                product = work_data["product"]
+                pp_params = obtain_calcrule_params(instance)
+                work_data["pp_params"] = pp_params
+                # manage the in/out patient params
+                work_data["claims"] = work_data["claims"].filter(get_hospital_level_filter(pp_params))\
+                    .filter(get_hospital_claim_filter(product.ceiling_interpretation, pp_params['claim_type']))
+                work_data["items"] = work_data["items"].filter(get_hospital_level_filter(pp_params, prefix='claim__'))\
+                    .filter(get_hospital_claim_filter(product.ceiling_interpretation, pp_params['claim_type'], 'claim__'))
+                work_data["services"] = work_data["services"].filter(get_hospital_level_filter(pp_params, prefix='claim__'))\
+                    .filter(get_hospital_claim_filter(product.ceiling_interpretation, pp_params['claim_type'], 'claim__'))
                 claim_batch_valuation(instance, work_data)
                 update_claim_valuated(work_data['claims'], work_data['created_run'])
                 return "valuation finished 'fee for service'"
