@@ -1,28 +1,11 @@
-import json
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Value, F, Sum, Q, Prefetch, Count, Subquery, OuterRef, FloatField
-from django.db.models.functions import Coalesce
-from claim.models import ClaimItem, Claim, ClaimService
-from claim_batch.models import RelativeIndex, RelativeDistribution
-from claim_batch.services import get_hospital_claim_filter, get_period
+from django.db.models import F, Sum, Q
+
+from claim_batch.models import RelativeIndex
+from claim_batch.services import get_period
 from invoice.models import BillItem
 from location.models import HealthFacility
 from product.models import Product
-
-INTEGER_PARAMETERS = [
-    "share_contribution",
-    "distr_1", "distr_2", "distr_3", "distr_4", "distr_5", "distr_6",
-    "distr_7", "distr_8", "distr_9", "distr_10", "distr_11", "distr_12",
-]
-
-NONE_INTEGER_PARAMETERS = ['hf_level_1',
-                           'hf_sublevel_1',
-                           'hf_level_2',
-                           'hf_sublevel_2',
-                           'hf_level_3',
-                           'hf_sublevel_3',
-                           'hf_level_4',
-                           'hf_sublevel_4']
 
 
 def check_bill_exist(instance, convert_to, **kwargs):
@@ -34,33 +17,6 @@ def check_bill_exist(instance, convert_to, **kwargs):
             bills = BillItem.objects.filter(line_type=content_type, line_id=claim.id)
             if bills.count() == 0:
                 return True
-
-
-# TODO move it to contribution plan
-def obtain_calcrule_params(payment_plan) -> dict:
-    # obtaining payment plan params saved in payment plan json_ext fields
-    pp_params = payment_plan.json_ext
-    if isinstance(pp_params, str):
-        pp_params = json.loads(pp_params)
-    if pp_params:
-        pp_params = pp_params["calculation_rule"] if "calculation_rule" in pp_params else None
-    # correct empty string values
-
-    for key in INTEGER_PARAMETERS:
-        if key in pp_params.items():
-            value = pp_params.items()[f'{key}']
-            if value == "":
-                pp_params[f'{key}'] = 0
-            else:
-                pp_params[f'{key}'] = int(value)
-        else:
-            pp_params[f'{key}'] = 0
-
-    for key in NONE_INTEGER_PARAMETERS:
-        if key not in pp_params.items():
-            pp_params[f'{key}'] = None
-
-    return pp_params
 
 
 def claim_batch_valuation(payment_plan, work_data):

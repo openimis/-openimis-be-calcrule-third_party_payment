@@ -1,19 +1,35 @@
 import operator
 
-from calcrule_third_party_payment.apps import AbsCalculationRule
-from calcrule_third_party_payment.config import CLASS_RULE_PARAM_VALIDATION, \
-    DESCRIPTION_CONTRIBUTION_VALUATION, FROM_TO
-from calcrule_third_party_payment.utils import check_bill_exist, \
-    claim_batch_valuation,  get_hospital_level_filter, obtain_calcrule_params
-from invoice.services import BillService
+from django.contrib.contenttypes.models import ContentType
 
-from claim_batch.services import get_hospital_claim_filter, update_claim_valuated
+from calcrule_third_party_payment.apps import AbsCalculationRule
+from calcrule_third_party_payment.config import(
+    CLASS_RULE_PARAM_VALIDATION,
+    DESCRIPTION_CONTRIBUTION_VALUATION,
+    FROM_TO, INTEGER_PARAMETERS,
+    NONE_INTEGER_PARAMETERS,
+    CONTEXTS
+)
+from calcrule_third_party_payment.utils import (
+    check_bill_exist,
+    claim_batch_valuation,
+    get_hospital_level_filter
+)
+from claim.models import (
+    Claim,
+    ClaimItem,
+    ClaimService
+)
+from claim_batch.services import (
+    get_hospital_claim_filter,
+    update_claim_valuated
+)
+from contribution_plan.models import PaymentPlan
+from contribution_plan.utils import obtain_calcrule_params
 from core.signals import *
 from core import datetime
-from django.contrib.contenttypes.models import ContentType
-from django.db.models import Q
-from claim.models import Claim, ClaimItem, ClaimService
-from contribution_plan.models import PaymentPlan
+from invoice.services import BillService
+
 from product.models import Product
 from calcrule_third_party_payment.converters import ClaimsToBillConverter, ClaimToBillItemConverter
 from core.models import User
@@ -57,7 +73,7 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
     @classmethod
     def active_for_object(cls, instance, context, type='account_payable', sub_type='third_party_payment'):
         return instance.__class__.__name__ == "PaymentPlan" \
-               and context in ["BatchValuate", "BatchPayment", "IndividualPayment", "IndividualValuation"] \
+               and context in CONTEXTS \
                and cls.check_calculation(instance)
 
     @classmethod
@@ -110,7 +126,7 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
             elif context == "BatchValuate":
                 work_data = kwargs.get('work_data', None)
                 product = work_data["product"]
-                pp_params = obtain_calcrule_params(instance)
+                pp_params = obtain_calcrule_params(instance, INTEGER_PARAMETERS, NONE_INTEGER_PARAMETERS)
                 work_data["pp_params"] = pp_params
                 # manage the in/out patient params
                 work_data["claims"] = work_data["claims"].filter(get_hospital_level_filter(pp_params))\

@@ -2,30 +2,39 @@ import calendar
 import datetime
 
 from claim.gql_mutations import validate_and_process_dedrem_claim
-from claim.models import ClaimDedRem, Claim
+from claim.models import (
+    ClaimDedRem,
+    Claim
+)
 from claim.test_helpers import (
     create_test_claim,
     create_test_claimservice,
     create_test_claimitem,
     delete_claim_with_itemsvc_dedrem_and_history,
 )
-from claim_batch.models import RelativeDistribution
 from claim_batch.services import do_process_batch
-from claim_batch.test_helpers import create_test_rel_distr_range
-from contribution.test_helpers import create_test_payer, create_test_premium
+from contribution.test_helpers import (
+    create_test_payer,
+    create_test_premium
+)
 from contribution_plan.models import PaymentPlan
 from contribution_plan.tests.helpers import create_test_payment_plan
-from core.models import User, InteractiveUser
-from core.services import create_or_update_interactive_user, create_or_update_core_user
+from core.services import (
+    create_or_update_interactive_user,
+    create_or_update_core_user
+)
 from django.test import TestCase
 from insuree.test_helpers import create_test_insuree
-from medical.test_helpers import create_test_service, create_test_item
+from medical.test_helpers import (
+    create_test_service,
+    create_test_item
+)
 from medical_pricelist.test_helpers import (
     add_service_to_hf_pricelist,
     add_item_to_hf_pricelist,
 )
 from policy.test_helpers import create_test_policy
-from product.models import ProductItemOrService, Product
+from product.models import ProductItemOrService
 from product.test_helpers import (
     create_test_product,
     create_test_product_service,
@@ -74,9 +83,9 @@ class BatchRunTest(TestCase):
         )
         payment_plan = create_test_payment_plan(
             product=product,
-            periodicity=1,
             calculation="0a1b6d54-eef4-4ee6-ac47-2a99cfa5e9a8",
             custom_props={
+                'periodicity': 1,
                 'date_valid_from': '2019-01-01',
                 'date_valid_to': '2050-01-01',
                 'json_ext': {
