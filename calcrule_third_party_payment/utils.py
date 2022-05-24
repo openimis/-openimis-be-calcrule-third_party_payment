@@ -39,8 +39,11 @@ def claim_batch_valuation(payment_plan, work_data):
     # if there is no configuration the relative index will be set to 100 %
     if start_date is not None:
 
-        value_items = items.aggregate(sum=Sum('price_adjusted'))
-        value_services = services.aggregate(sum=Sum('price_adjusted'))
+        relative_items = items.filter(price_origin='R')
+        relative_services = services.filter(price_origin='R')
+        value_items = relative_items.aggregate(sum=Sum('price_adjusted'))
+        value_services = relative_services.aggregate(sum=Sum('price_adjusted'))
+
         if sum in value_items:
             value += value_items['sum']
         if sum in value_services:

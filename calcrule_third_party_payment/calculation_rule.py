@@ -3,10 +3,11 @@ import operator
 from django.contrib.contenttypes.models import ContentType
 
 from calcrule_third_party_payment.apps import AbsCalculationRule
-from calcrule_third_party_payment.config import(
+from calcrule_third_party_payment.config import (
     CLASS_RULE_PARAM_VALIDATION,
     DESCRIPTION_CONTRIBUTION_VALUATION,
-    FROM_TO, INTEGER_PARAMETERS,
+    FROM_TO,
+    INTEGER_PARAMETERS,
     NONE_INTEGER_PARAMETERS,
     CONTEXTS
 )
