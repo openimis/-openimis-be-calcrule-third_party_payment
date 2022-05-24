@@ -117,6 +117,3 @@ def get_relative_price_rate(value, pp_params, work_data):
         return index
     else:
         return 1
-
-
-
