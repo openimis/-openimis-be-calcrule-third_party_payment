@@ -125,19 +125,7 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
                 cls.convert_batch(work_data=work_data)
                 return "conversion finished 'fee for service'"
             elif context == "BatchValuate":
-                work_data = kwargs.get('work_data', None)
-                product = work_data["product"]
-                pp_params = obtain_calcrule_params(instance, INTEGER_PARAMETERS, NONE_INTEGER_PARAMETERS)
-                work_data["pp_params"] = pp_params
-                # manage the in/out patient params
-                work_data["claims"] = work_data["claims"].filter(get_hospital_level_filter(pp_params))\
-                    .filter(get_hospital_claim_filter(product.ceiling_interpretation, pp_params['claim_type']))
-                work_data["items"] = work_data["items"].filter(get_hospital_level_filter(pp_params, prefix='claim__'))\
-                    .filter(get_hospital_claim_filter(product.ceiling_interpretation, pp_params['claim_type'], 'claim__'))
-                work_data["services"] = work_data["services"].filter(get_hospital_level_filter(pp_params, prefix='claim__'))\
-                    .filter(get_hospital_claim_filter(product.ceiling_interpretation, pp_params['claim_type'], 'claim__'))
-                claim_batch_valuation(instance, work_data)
-                update_claim_valuated(work_data['claims'], work_data['created_run'])
+                cls._process_batch_valuation(instance, **kwargs)
                 return "valuation finished 'fee for service'"
             elif context == "IndividualPayment":
                 pass
@@ -190,6 +178,22 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
                 )
                 # take all claims related to the same HF and batch_run to convert to bill
                 cls.run_convert(instance=claim_queryset_by_br_hf, convert_to='Bill', user=user)
+
+    @classmethod
+    def _process_batch_valuation(cls, instance, **kwargs):
+        work_data = kwargs.get('work_data', None)
+        product = work_data["product"]
+        pp_params = obtain_calcrule_params(instance, INTEGER_PARAMETERS, NONE_INTEGER_PARAMETERS)
+        work_data["pp_params"] = pp_params
+        # manage the in/out patient params
+        work_data["claims"] = work_data["claims"].filter(get_hospital_level_filter(pp_params)) \
+            .filter(get_hospital_claim_filter(product.ceiling_interpretation, pp_params['claim_type']))
+        work_data["items"] = work_data["items"].filter(get_hospital_level_filter(pp_params, prefix='claim__')) \
+            .filter(get_hospital_claim_filter(product.ceiling_interpretation, pp_params['claim_type'], 'claim__'))
+        work_data["services"] = work_data["services"].filter(get_hospital_level_filter(pp_params, prefix='claim__')) \
+            .filter(get_hospital_claim_filter(product.ceiling_interpretation, pp_params['claim_type'], 'claim__'))
+        claim_batch_valuation(instance, work_data)
+        update_claim_valuated(work_data['claims'], work_data['created_run'])
 
     @classmethod
     def _convert_claims(cls, instance):

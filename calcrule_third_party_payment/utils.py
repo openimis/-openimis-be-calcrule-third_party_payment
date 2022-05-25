@@ -5,7 +5,10 @@ from claim_batch.models import RelativeIndex
 from claim_batch.services import get_period
 from invoice.models import BillItem
 from location.models import HealthFacility
-from product.models import Product, ProductItemOrService
+from product.models import (
+    Product,
+    ProductItemOrService
+)
 
 
 def check_bill_exist(instance, convert_to, **kwargs):
