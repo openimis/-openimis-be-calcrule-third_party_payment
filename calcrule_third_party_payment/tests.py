@@ -54,7 +54,7 @@ _TEST_DATA_USER = {
 }
 
 
-class BatchRunTest(TestCase):
+class BatchRunFeeForServiceTest(TestCase):
     def setUp(self) -> None:
         i_user, i_user_created = create_or_update_interactive_user(
             user_id=None, data=_TEST_DATA_USER, audit_user_id=999, connected=False)
