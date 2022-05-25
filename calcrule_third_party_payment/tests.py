@@ -160,7 +160,6 @@ class BatchRunTest(TestCase):
         self.assertEquals(dedrem.rem_g, 500)  # 100*2 + 100*3
 
         # When
-
         end_date = datetime.datetime(claim1.validity_from.year, claim1.validity_from.month, days_in_month)
 
         batch_run = do_process_batch(

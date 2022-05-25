@@ -5,7 +5,7 @@ from claim_batch.models import RelativeIndex
 from claim_batch.services import get_period
 from invoice.models import BillItem
 from location.models import HealthFacility
-from product.models import Product
+from product.models import Product, ProductItemOrService
 
 
 def check_bill_exist(instance, convert_to, **kwargs):
@@ -39,8 +39,8 @@ def claim_batch_valuation(payment_plan, work_data):
     # if there is no configuration the relative index will be set to 100 %
     if start_date is not None:
 
-        relative_items = items.filter(price_origin='R')
-        relative_services = services.filter(price_origin='R')
+        relative_items = items.filter(price_origin=ProductItemOrService.ORIGIN_RELATIVE)
+        relative_services = services.filter(price_origin=ProductItemOrService.ORIGIN_RELATIVE)
         value_items = relative_items.aggregate(sum=Sum('price_adjusted'))
         value_services = relative_services.aggregate(sum=Sum('price_adjusted'))
 
