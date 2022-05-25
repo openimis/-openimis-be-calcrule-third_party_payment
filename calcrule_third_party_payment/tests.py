@@ -1,5 +1,6 @@
 import calendar
 import datetime
+import decimal
 
 from claim.gql_mutations import validate_and_process_dedrem_claim
 from claim.models import (
@@ -25,6 +26,10 @@ from core.services import (
 )
 from django.test import TestCase
 from insuree.test_helpers import create_test_insuree
+from invoice.models import (
+    Bill,
+    BillItem
+)
 from medical.test_helpers import (
     create_test_service,
     create_test_item
@@ -136,10 +141,10 @@ class BatchRunFeeForServiceTest(TestCase):
 
         claim1 = create_test_claim({"insuree_id": insuree.id})
         service1 = create_test_claimservice(
-            claim1, custom_props={"service_id": service.id, "qty_provided": 2}
+            claim1, custom_props={"service_id": service.id, "qty_provided": 2, "price_origin": ProductItemOrService.ORIGIN_RELATIVE}
         )
         item1 = create_test_claimitem(
-            claim1, "A", custom_props={"item_id": item.id, "qty_provided": 3}
+            claim1, "A", custom_props={"item_id": item.id, "qty_provided": 3, "price_origin": ProductItemOrService.ORIGIN_RELATIVE}
         )
         errors = validate_and_process_dedrem_claim(claim1, self.user, True)
         _, days_in_month = calendar.monthrange(claim1.validity_from.year, claim1.validity_from.month)
@@ -158,21 +163,29 @@ class BatchRunFeeForServiceTest(TestCase):
         dedrem = ClaimDedRem.objects.filter(claim=claim1).first()
         self.assertIsNotNone(dedrem)
         self.assertEquals(dedrem.rem_g, 500)  # 100*2 + 100*3
+        # renumerated should be Null
+        self.assertEqual(claim1.remunerated, None)
 
         # When
         end_date = datetime.datetime(claim1.validity_from.year, claim1.validity_from.month, days_in_month)
-
         batch_run = do_process_batch(
             self.user.id_for_audit,
             None,
             end_date
         )
-
         claim1.refresh_from_db()
         item1.refresh_from_db()
         service1.refresh_from_db()
 
         self.assertEquals(claim1.status, Claim.STATUS_VALUATED)
+        self.assertNotEqual(item1.price_valuated, item1.price_adjusted)
+        self.assertNotEqual(service1.price_valuated, service1.price_adjusted)
+        # based on calculation - should be 201.15 per item and service
+        # therefore renumerated = 402.30
+        self.assertEqual(item1.price_valuated, decimal.Decimal('201.15'))
+        self.assertEqual(service1.price_valuated, decimal.Decimal('201.15'))
+        self.assertEqual(claim1.remunerated, service1.price_valuated + item1.price_valuated)
+        self.assertNotEqual(Bill.objects.get(subject_id=batch_run.id), None)
 
         # tearDown
         # dedrem.delete() # already done if the test passed
@@ -192,4 +205,5 @@ class BatchRunFeeForServiceTest(TestCase):
         PaymentPlan.objects.filter(id=payment_plan.id).delete()
         product.delete()
         if batch_run is not None:
+            Bill.objects.filter(subject_id=batch_run.id).delete()
             batch_run.delete()
