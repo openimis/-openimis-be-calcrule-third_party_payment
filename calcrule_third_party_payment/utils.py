@@ -46,9 +46,9 @@ def claim_batch_valuation(payment_plan, work_data):
         value_items = relative_items.aggregate(sum=Sum('price_adjusted'))
         value_services = relative_services.aggregate(sum=Sum('price_adjusted'))
         if 'sum' in value_items:
-            value += value_items['sum']
+            value += value_items['sum'] if value_items['sum'] else 0
         if 'sum' in value_services:
-            value += value_services['sum']
+            value += value_services['sum'] if value_services['sum'] else 0
 
         index = get_relative_price_rate(value, pp_params, work_data)
         # update the item and services
@@ -64,35 +64,35 @@ def is_hospital_claim(product, claim):
 
 
 def get_hospital_level_filter(pp_params, prefix=''):
-    Qterm = Q()
+    qterm = Q()
     hf = '%shealth_facility' % prefix
 
     # if no filter all would be taken into account
     if pp_params['hf_level_1']:
         if pp_params['hf_sublevel_1']:
-            Qterm |= (Q(('%s__level' % hf, pp_params['hf_level_1'])) & Q(
+            qterm |= (Q(('%s__level' % hf, pp_params['hf_level_1'])) & Q(
                 ('%s__sub_level' % hf, pp_params['hf_sublevel_1'])))
         else:
-            Qterm |= Q(('%s__level' % hf, pp_params['hf_level_1']))
+            qterm |= Q(('%s__level' % hf, pp_params['hf_level_1']))
     if pp_params['hf_level_2']:
         if pp_params['hf_sublevel_2']:
-            Qterm |= (Q(('%s__level' % hf, pp_params['hf_level_2'])) & Q(
+            qterm |= (Q(('%s__level' % hf, pp_params['hf_level_2'])) & Q(
                 ('%s__sub_level' % hf, pp_params['hf_sublevel_2'])))
         else:
-            Qterm |= Q(('%s__level' % hf, pp_params['hf_level_2']))
+            qterm |= Q(('%s__level' % hf, pp_params['hf_level_2']))
     if pp_params['hf_level_3']:
         if pp_params['hf_sublevel_3']:
-            Qterm |= (Q(('%s__level' % hf, pp_params['hf_level_3'])) & Q(
+            qterm |= (Q(('%s__level' % hf, pp_params['hf_level_3'])) & Q(
                 ('%s__sub_level' % hf, pp_params['hf_sublevel_3'])))
         else:
-            Qterm |= Q(('%s__level' % hf, pp_params['hf_level_3']))
+            qterm |= Q(('%s__level' % hf, pp_params['hf_level_3']))
     if pp_params['hf_level_4']:
         if pp_params['hf_sublevel_4']:
-            Qterm |= (Q(('%s__level' % hf, pp_params['hf_level_4'])) & Q(
+            qterm |= (Q(('%s__level' % hf, pp_params['hf_level_4'])) & Q(
                 ('%s__sub_level' % hf, pp_params['hf_sublevel_4'])))
         else:
-            Qterm |= Q(('%s__level' % hf, pp_params['hf_level_4']))
-    return Qterm
+            qterm |= Q(('%s__level' % hf, pp_params['hf_level_4']))
+    return qterm
 
 
 # to be moded in product services
