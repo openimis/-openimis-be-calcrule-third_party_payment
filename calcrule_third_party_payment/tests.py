@@ -30,13 +30,23 @@ from invoice.models import (
     Bill,
     BillItem
 )
+from location.test_helpers import (
+    create_test_location,
+    create_test_health_facility
+)
 from medical.test_helpers import (
     create_test_service,
     create_test_item
 )
+from medical_pricelist.models import (
+    ItemsPricelist,
+    ServicesPricelist
+)
 from medical_pricelist.test_helpers import (
     add_service_to_hf_pricelist,
     add_item_to_hf_pricelist,
+    create_test_item_pricelist,
+    create_test_service_pricelist
 )
 from policy.test_helpers import create_test_policy
 from product.models import ProductItemOrService
@@ -73,6 +83,10 @@ class BatchRunFeeForServiceTest(TestCase):
         then submits a review rejecting part of it, then process the claim.
         It should not be processed (which was ok) but the dedrem should be deleted.
         """
+        # create location
+        test_region = create_test_location('R')
+        test_district = create_test_location('D', custom_props={"parent_id": test_region.id})
+
         # Given
         insuree = create_test_insuree()
         self.assertIsNotNone(insuree)
@@ -84,6 +98,7 @@ class BatchRunFeeForServiceTest(TestCase):
             custom_props={
                 "name": "simplebatch",
                 "lump_sum": 10_000,
+                "location_id": test_region.id
             },
         )
         payment_plan = create_test_payment_plan(
@@ -136,15 +151,23 @@ class BatchRunFeeForServiceTest(TestCase):
         premium = create_test_premium(
             policy_id=policy.id, custom_props={"payer_id": payer.id}
         )
-        pricelist_detail1 = add_service_to_hf_pricelist(service)
-        pricelist_detail2 = add_item_to_hf_pricelist(item)
+        test_item_price_list = create_test_item_pricelist(test_region.id)
+        test_service_price_list = create_test_service_pricelist(test_region.id)
+        # create hf and attach item/services pricelist
+        test_health_facility = create_test_health_facility(
+            'HFT',
+            test_district.id,
+            custom_props={"services_pricelist_id": test_service_price_list.id, "items_pricelist_id": test_item_price_list.id}
+        )
+        pricelist_detail1 = add_service_to_hf_pricelist(service, test_health_facility.id)
+        pricelist_detail2 = add_item_to_hf_pricelist(item, test_health_facility.id)
 
-        claim1 = create_test_claim({"insuree_id": insuree.id})
+        claim1 = create_test_claim({"claimed": 500.0, "insuree_id": insuree.id, 'health_facility_id': test_health_facility.id})
         service1 = create_test_claimservice(
-            claim1, custom_props={"service_id": service.id, "qty_provided": 2, "price_origin": ProductItemOrService.ORIGIN_RELATIVE}
+            claim1, custom_props={"price_asked": 100, "service_id": service.id, "qty_provided": 2, "price_origin": ProductItemOrService.ORIGIN_RELATIVE}
         )
         item1 = create_test_claimitem(
-            claim1, "A", custom_props={"item_id": item.id, "qty_provided": 3, "price_origin": ProductItemOrService.ORIGIN_RELATIVE}
+            claim1, "A", custom_props={"price_asked": 100, "item_id": item.id, "qty_provided": 3, "price_origin": ProductItemOrService.ORIGIN_RELATIVE}
         )
         errors = validate_and_process_dedrem_claim(claim1, self.user, True)
         _, days_in_month = calendar.monthrange(claim1.validity_from.year, claim1.validity_from.month)
@@ -170,7 +193,7 @@ class BatchRunFeeForServiceTest(TestCase):
         end_date = datetime.datetime(claim1.validity_from.year, claim1.validity_from.month, days_in_month)
         batch_run = do_process_batch(
             self.user.id_for_audit,
-            None,
+            test_region.id,
             end_date
         )
         claim1.refresh_from_db()
@@ -186,6 +209,7 @@ class BatchRunFeeForServiceTest(TestCase):
         self.assertEqual(service1.price_valuated, decimal.Decimal('201.15'))
         self.assertEqual(claim1.remunerated, service1.price_valuated + item1.price_valuated)
         self.assertNotEqual(Bill.objects.get(subject_id=batch_run.id), None)
+        self.assertNotEqual(BillItem.objects.get(bill__subject_id=batch_run.id), None)
 
         # tearDown
         # dedrem.delete() # already done if the test passed
@@ -205,5 +229,11 @@ class BatchRunFeeForServiceTest(TestCase):
         PaymentPlan.objects.filter(id=payment_plan.id).delete()
         product.delete()
         if batch_run is not None:
+            BillItem.objects.filter(bill__subject_id=batch_run.id).delete()
             Bill.objects.filter(subject_id=batch_run.id).delete()
             batch_run.delete()
+        test_health_facility.delete()
+        test_service_price_list.delete()
+        test_item_price_list.delete()
+        test_district.delete()
+        test_region.delete()
