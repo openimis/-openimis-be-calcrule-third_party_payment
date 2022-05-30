@@ -587,3 +587,23 @@ DESCRIPTION_CONTRIBUTION_VALUATION = F"" \
     F"This calculation will, for the selected level and product," \
     F" calculate how much the insurance need to" \
     F" pay the HF for the fee for service health financing"
+
+
+INTEGER_PARAMETERS = [
+    "share_contribution",
+    "distr_1", "distr_2", "distr_3", "distr_4", "distr_5", "distr_6",
+    "distr_7", "distr_8", "distr_9", "distr_10", "distr_11", "distr_12",
+]
+
+
+NONE_INTEGER_PARAMETERS = ['hf_level_1',
+                           'hf_sublevel_1',
+                           'hf_level_2',
+                           'hf_sublevel_2',
+                           'hf_level_3',
+                           'hf_sublevel_3',
+                           'hf_level_4',
+                           'hf_sublevel_4']
+
+
+CONTEXTS = ["BatchValuate", "BatchPayment", "IndividualPayment", "IndividualValuation"]
