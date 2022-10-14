@@ -71,6 +71,7 @@ _TEST_DATA_USER = {
 
 class BatchRunFeeForServiceTest(TestCase):
     def setUp(self) -> None:
+        super(BatchRunFeeForServiceTest, self).setUp()
         i_user, i_user_created = create_or_update_interactive_user(
             user_id=None, data=_TEST_DATA_USER, audit_user_id=999, connected=False)
         user, user_created = create_or_update_core_user(
@@ -157,17 +158,21 @@ class BatchRunFeeForServiceTest(TestCase):
         test_health_facility = create_test_health_facility(
             'HFT',
             test_district.id,
-            custom_props={"services_pricelist_id": test_service_price_list.id, "items_pricelist_id": test_item_price_list.id}
+            custom_props={"services_pricelist_id": test_service_price_list.id,
+                          "items_pricelist_id": test_item_price_list.id}
         )
         pricelist_detail1 = add_service_to_hf_pricelist(service, test_health_facility.id)
         pricelist_detail2 = add_item_to_hf_pricelist(item, test_health_facility.id)
 
-        claim1 = create_test_claim({"claimed": 500.0, "insuree_id": insuree.id, 'health_facility_id': test_health_facility.id})
+        claim1 = create_test_claim(
+            {"claimed": 500.0, "insuree_id": insuree.id, 'health_facility_id': test_health_facility.id})
         service1 = create_test_claimservice(
-            claim1, custom_props={"price_asked": 100, "service_id": service.id, "qty_provided": 2, "price_origin": ProductItemOrService.ORIGIN_RELATIVE}
+            claim1, custom_props={"price_asked": 100, "service_id": service.id, "qty_provided": 2,
+                                  "price_origin": ProductItemOrService.ORIGIN_RELATIVE}
         )
         item1 = create_test_claimitem(
-            claim1, "A", custom_props={"price_asked": 100, "item_id": item.id, "qty_provided": 3, "price_origin": ProductItemOrService.ORIGIN_RELATIVE}
+            claim1, "A", custom_props={"price_asked": 100, "item_id": item.id, "qty_provided": 3,
+                                       "price_origin": ProductItemOrService.ORIGIN_RELATIVE}
         )
         errors = validate_and_process_dedrem_claim(claim1, self.user, True)
         _, days_in_month = calendar.monthrange(claim1.validity_from.year, claim1.validity_from.month)
