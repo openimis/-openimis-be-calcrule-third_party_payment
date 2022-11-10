@@ -394,7 +394,7 @@ CLASS_RULE_PARAM_VALIDATION = [
 					"update": "121003",
 					"replace": "121006"
 				},
-				"relevance": "MOD( 1, OBJECT.periodicity) == 0"
+				"relevance": "MOD(1, OBJECT.periodicity) = 0"
 			},
 			{
 				"type": "number",
@@ -410,7 +410,7 @@ CLASS_RULE_PARAM_VALIDATION = [
 					"update": "121003",
 					"replace": "121006"
 				},
-				"relevance": "MOD( 2, OBJECT.periodicity) == 0"
+				"relevance": "MOD(2, OBJECT.periodicity) = 0"
 			},
 			{
 				"type": "number",
@@ -426,7 +426,7 @@ CLASS_RULE_PARAM_VALIDATION = [
 					"update": "121003",
 					"replace": "121006"
 				},
-				"relevance": "MOD( 3, OBJECT.periodicity) == 0"
+				"relevance": "MOD(3, OBJECT.periodicity) = 0"
 			},
 			{
 				"type": "number",
@@ -442,7 +442,7 @@ CLASS_RULE_PARAM_VALIDATION = [
 					"update": "121003",
 					"replace": "121006"
 				},
-				"relevance": " MOD( 1, OBJECT.periodicity) == 0"
+				"relevance": " MOD(4, OBJECT.periodicity) = 0"
 			},
 			{
 				"type": "number",
@@ -458,7 +458,7 @@ CLASS_RULE_PARAM_VALIDATION = [
 					"update": "121003",
 					"replace": "121006"
 				},
-				"relevance": "MOD( 5, OBJECT.periodicity) == 0"
+				"relevance": "MOD(5, OBJECT.periodicity) = 0"
 			},
 			{
 				"type": "number",
@@ -474,7 +474,7 @@ CLASS_RULE_PARAM_VALIDATION = [
 					"update": "121003",
 					"replace": "121006"
 				},
-				"relevance": "MOD( 6, OBJECT.periodicity) == 0"
+				"relevance": "MOD(6, OBJECT.periodicity) = 0"
 			},
 			{
 				"type": "number",
@@ -490,7 +490,7 @@ CLASS_RULE_PARAM_VALIDATION = [
 					"update": "121003",
 					"replace": "121006"
 				},
-				"relevance": "MOD( 7, OBJECT.periodicity) == 0"
+				"relevance": "MOD(7, OBJECT.periodicity) = 0"
 			},
 			{
 				"type": "number",
@@ -506,7 +506,7 @@ CLASS_RULE_PARAM_VALIDATION = [
 					"update": "121003",
 					"replace": "121006"
 				},
-				"relevance": " MOD( 8, OBJECT.periodicity) == 0"
+				"relevance": "MOD(8, OBJECT.periodicity) = 0"
 			},
 			{
 				"type": "number",
@@ -522,7 +522,7 @@ CLASS_RULE_PARAM_VALIDATION = [
 					"update": "121003",
 					"replace": "121006"
 				},
-				"relevance": " MOD( 9, OBJECT.periodicity) == 0"
+				"relevance": "MOD(9, OBJECT.periodicity) = 0"
 			},
 			{
 				"type": "number",
@@ -538,7 +538,7 @@ CLASS_RULE_PARAM_VALIDATION = [
 					"update": "121003",
 					"replace": "121006"
 				},
-				"relevance": " MOD( 10, OBJECT.periodicity) == 0"
+				"relevance": "MOD(10, OBJECT.periodicity) = 0"
 			},
 			{
 				"type": "number",
@@ -554,7 +554,7 @@ CLASS_RULE_PARAM_VALIDATION = [
 					"update": "121003",
 					"replace": "121006"
 				},
-				"relevance": " MOD( 11, OBJECT.periodicity) == 0"
+				"relevance": "MOD(11, OBJECT.periodicity) = 0"
 			},
 			{
 				"type": "number",
@@ -570,7 +570,7 @@ CLASS_RULE_PARAM_VALIDATION = [
 					"update": "121003",
 					"replace": "121006"
 				},
-				"relevance": " MOD( 12, OBJECT.periodicity) == 0"
+				"relevance": "MOD(12, OBJECT.periodicity) = 0"
 			}
 		]
 	}
@@ -578,11 +578,32 @@ CLASS_RULE_PARAM_VALIDATION = [
 
 
 FROM_TO = [
-        {"from": "QuerySet", "to": "Bill"},
-        {"from": "Claim", "to": "BillItem"}
+    {"from": "QuerySet", "to": "Bill"},
+    {"from": "Claim", "to": "BillItem"}
 ]
+
 
 DESCRIPTION_CONTRIBUTION_VALUATION = F"" \
     F"This calculation will, for the selected level and product," \
     F" calculate how much the insurance need to" \
     F" pay the HF for the fee for service health financing"
+
+
+INTEGER_PARAMETERS = [
+    "share_contribution",
+    "distr_1", "distr_2", "distr_3", "distr_4", "distr_5", "distr_6",
+    "distr_7", "distr_8", "distr_9", "distr_10", "distr_11", "distr_12",
+]
+
+
+NONE_INTEGER_PARAMETERS = ['hf_level_1',
+                           'hf_sublevel_1',
+                           'hf_level_2',
+                           'hf_sublevel_2',
+                           'hf_level_3',
+                           'hf_sublevel_3',
+                           'hf_level_4',
+                           'hf_sublevel_4']
+
+
+CONTEXTS = ["BatchValuate", "BatchPayment", "IndividualPayment", "IndividualValuation"]
