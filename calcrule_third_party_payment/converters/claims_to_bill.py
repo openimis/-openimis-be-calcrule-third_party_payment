@@ -6,11 +6,8 @@ from invoice.models import Bill
 class ClaimsToBillConverter(object):
 
     @classmethod
-    def to_bill_obj(cls, claims, product):
+    def to_bill_obj(cls, claims, product, batch_run):
         bill = {}
-        # single bill = queryset of claims with the same batch run id and health facility
-        # get the first claim because all claims from queryset has the same batch run id
-        batch_run = claims.first().batch_run
         # get the first claim because all claims from queryset has the same health facility
         health_facility = claims.first().health_facility
         cls.build_subject(batch_run, bill)
@@ -71,4 +68,4 @@ class ClaimsToBillConverter(object):
     def build_amounts(cls, line_item, bill_update):
         bill_update["amount_net"] = line_item["amount_net"]
         bill_update["amount_total"] = line_item["amount_total"]
-        bill_update["amount_discount"] = 0 if line_item["discount"] else line_item["discount"]
+        bill_update["amount_discount"] = line_item["discount"] if line_item["discount"] else 0

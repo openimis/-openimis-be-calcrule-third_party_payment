@@ -18,7 +18,7 @@ def check_bill_exist(instance, convert_to, **kwargs):
             claim = instance.first()
             content_type = ContentType.objects.get_for_model(claim.__class__)
             bills = BillItem.objects.filter(line_type=content_type, line_id=claim.id)
-            if bills.count() == 0:
+            if bills.count():
                 return True
 
 
@@ -26,18 +26,12 @@ def claim_batch_valuation(payment_plan, work_data):
     """ update the service and item valuated amount """
 
     work_data["periodicity"] = payment_plan.periodicity
-    product = work_data["product"]
     items = work_data["items"]
     services = work_data["services"]
     start_date = work_data["start_date"]
-    end_date = work_data["end_date"]
-    claims = work_data["claims"]
     pp_params = work_data["pp_params"]
     # Sum up all item and service amount
     value = 0
-    value_items = 0
-    value_services = 0
-    index = 0
 
     # if there is no configuration the relative index will be set to 100 %
     if start_date is not None:
@@ -45,10 +39,10 @@ def claim_batch_valuation(payment_plan, work_data):
         relative_services = services.filter(price_origin=ProductItemOrService.ORIGIN_RELATIVE)
         value_items = relative_items.aggregate(sum=Sum('price_adjusted'))
         value_services = relative_services.aggregate(sum=Sum('price_adjusted'))
-        if 'sum' in value_items:
-            value += value_items['sum'] if value_items['sum'] else 0
-        if 'sum' in value_services:
-            value += value_services['sum'] if value_services['sum'] else 0
+        if 'sum' in value_items and value_items['sum']:
+            value += value_items['sum']
+        if 'sum' in value_services and value_services['sum']:
+            value += value_services['sum']
 
         index = get_relative_price_rate(value, pp_params, work_data)
         # update the item and services

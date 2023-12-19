@@ -1,6 +1,7 @@
 import operator
 
 from django.contrib.contenttypes.models import ContentType
+from django.db.models import Q
 
 from calcrule_third_party_payment.apps import AbsCalculationRule
 from calcrule_third_party_payment.config import (
@@ -118,10 +119,12 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
     @classmethod
     def calculate(cls, instance, **kwargs):
         context = kwargs.get('context', None)
-        class_name = instance.__class__.__name__
         if instance.__class__.__name__ == "PaymentPlan":
             if context == "BatchPayment":
                 work_data = kwargs.get('work_data', None)
+                claims = work_data["claims"]
+                if not claims:
+                    return "no conversion to do - no claim matching criteria"
                 cls.convert_batch(work_data=work_data)
                 return "conversion finished 'fee for service'"
             elif context == "BatchValuate":
@@ -153,13 +156,13 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
     @classmethod
     def convert(cls, instance, convert_to, **kwargs):
         results = {}
-        if check_bill_exist(instance, convert_to):
+        if not check_bill_exist(instance, convert_to):
             convert_from = instance.__class__.__name__
             if convert_from == "QuerySet":
                 # get the model name from queryset
                 convert_from = instance.model.__name__
                 if convert_from == "Claim":
-                    results = cls._convert_claims(instance)
+                    results = cls._convert_claims(instance, **kwargs)
             results['user'] = kwargs.get('user', None)
             BillService.bill_create(convert_results=results)
         return results
@@ -169,15 +172,19 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
         work_data = kwargs.get('work_data', None)
         if work_data:
             user = User.objects.filter(i_user__id=work_data['created_run'].audit_user_id).first()
-            # create queryset based on provided params
-            claim_queryset = Claim.objects.filter(validity_to=None, batch_run=work_data['created_run'], health_facility__isnull=False)
-            claim_br_hf_list = list(claim_queryset.values('batch_run', 'health_facility').distinct())
-            for cbh in claim_br_hf_list:
-                claim_queryset_by_br_hf = Claim.objects.filter(
-                    batch_run__id=cbh["batch_run"], health_facility__id=cbh["health_facility"]
-                )
-                # take all claims related to the same HF and batch_run to convert to bill
-                cls.run_convert(instance=claim_queryset_by_br_hf, convert_to='Bill', user=user)
+
+            claim_ids_per_hf = {}
+            # regrouping all the claims by HF
+            for claim in work_data["claims"]:
+                hf_id = claim.health_facility_id
+                if hf_id not in claim_ids_per_hf:
+                    claim_ids_per_hf[hf_id] = [claim.id]
+                else:
+                    claim_ids_per_hf[hf_id].append(claim.id)
+            for claim_ids in claim_ids_per_hf.values():
+                claims = Claim.objects.filter(id__in=claim_ids, validity_to__isnull=True)
+                # take all claims related to the same HF and batch_run and product to convert to bill
+                cls.run_convert(instance=claims, convert_to='Bill', user=user, work_data=work_data)
 
     @classmethod
     def _process_batch_valuation(cls, instance, **kwargs):
@@ -186,46 +193,41 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
         pp_params = obtain_calcrule_params(instance, INTEGER_PARAMETERS, NONE_INTEGER_PARAMETERS)
         work_data["pp_params"] = pp_params
         # manage the in/out patient params
-        work_data["claims"] = work_data["claims"].filter(get_hospital_level_filter(pp_params)) \
-            .filter(get_hospital_claim_filter(product.ceiling_interpretation, pp_params['claim_type']))
-        work_data["items"] = work_data["items"].filter(get_hospital_level_filter(pp_params, prefix='claim__')) \
-            .filter(get_hospital_claim_filter(product.ceiling_interpretation, pp_params['claim_type'], 'claim__'))
-        work_data["services"] = work_data["services"].filter(get_hospital_level_filter(pp_params, prefix='claim__')) \
-            .filter(get_hospital_claim_filter(product.ceiling_interpretation, pp_params['claim_type'], 'claim__'))
+        hospital_level_filters = get_hospital_level_filter(pp_params)
+        hospital_claim_filters = get_hospital_claim_filter(product.ceiling_interpretation, pp_params["claim_type"])
+        cls._filter_claims_items_and_services(hospital_level_filters & hospital_claim_filters, work_data)
         claim_batch_valuation(instance, work_data)
         update_claim_valuated(work_data['claims'], work_data['created_run'])
 
     @classmethod
-    def _convert_claims(cls, instance):
-        products = cls.__get_products_from_claim_queryset(claim_queryset=instance)
-        # take the MAX Product id from item and services
-        if len(products) > 0:
-            product = max(products, key=operator.attrgetter('id'))
-            bill = ClaimsToBillConverter.to_bill_obj(claims=instance, product=product)
-            bill_line_items = []
-            for claim in instance.all():
-                bill_line_item = ClaimToBillItemConverter.to_bill_line_item_obj(claim=claim)
-                bill_line_items.append(bill_line_item)
-            return {
-                'bill_data': bill,
-                'bill_data_line': bill_line_items,
-                'type_conversion': 'claims queryset-bill'
-            }
+    def _filter_claims_items_and_services(cls, claim_filters, work_data):
+        filtered_claims = work_data["claims"].filter(claim_filters).prefetch_related("items", "services")
+        items_queryset = ClaimItem.objects.none()
+        services_queryset = ClaimService.objects.none()
+        for claim in filtered_claims:
+            items_queryset |= claim.items.filter(validity_to__isnull=True)
+            services_queryset |= claim.services.filter(validity_to__isnull=True)
+
+        work_data["claims"] = filtered_claims
+        work_data["items"] = items_queryset
+        work_data["services"] = services_queryset
 
     @classmethod
-    def __get_products_from_claim_queryset(cls, claim_queryset):
-        products = []
-        # get the clam product from claim item and claim services
-        for claim in claim_queryset.all():
-            for svc_item in [ClaimItem, ClaimService]:
-                claim_details = svc_item.objects \
-                    .filter(claim__id=claim.id) \
-                    .filter(claim__validity_to__isnull=True) \
-                    .filter(validity_to__isnull=True)
-                for cd in claim_details:
-                    if cd.product:
-                        products.append(cd.product)
-        return products
+    def _convert_claims(cls, instance, **kwargs):
+        work_data = kwargs["work_data"]
+        bill = ClaimsToBillConverter.to_bill_obj(claims=instance,
+                                                 product=work_data["product"],
+                                                 batch_run=work_data["created_run"])
+        bill_line_items = []
+        for claim in instance.all():
+            bill_line_item = ClaimToBillItemConverter.to_bill_line_item_obj(claim=claim)
+            bill_line_items.append(bill_line_item)
+        return {
+            'bill_data': bill,
+            'bill_data_line': bill_line_items,
+            'type_conversion': 'claims queryset-bill'
+        }
+
 
     @classmethod
     def __get_products_from_claim(cls, claim):
