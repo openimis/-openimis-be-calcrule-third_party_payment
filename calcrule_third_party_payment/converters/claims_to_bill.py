@@ -21,6 +21,7 @@ class ClaimsToBillConverter(object):
         cls.build_currency(bill)
         cls.build_status(bill)
         cls.build_terms(product, bill)
+        cls.build_init_amounts(bill)
         return bill
 
     @classmethod
@@ -69,6 +70,17 @@ class ClaimsToBillConverter(object):
 
     @classmethod
     def build_amounts(cls, line_item, bill_update):
-        bill_update["amount_net"] = line_item["amount_net"]
-        bill_update["amount_total"] = line_item["amount_total"]
-        bill_update["amount_discount"] = 0 if line_item["discount"] else line_item["discount"]
+        
+        bill_update["amount_net"] += line_item["amount_net"]
+        bill_update["amount_total"] += line_item["amount_total"]
+        #bill_update["amount_discount"] += 0 if "discount" in  line_item or not line_item["discount"] else line_item["discount"]
+        #bill_update["amount_deduction"] += 0 if "deduction" in  line_item or not line_item["deduction"] else line_item["deduction"]
+        
+    @classmethod
+    def build_init_amounts(cls, bill_update):
+        
+        bill_update["amount_net"] = 0
+        bill_update["amount_total"] = 0
+        #bill_update["amount_discount"] += 0 if "discount" in  line_item or not line_item["discount"] else line_item["discount"]
+        #bill_update["amount_deduction"] += 0 if "deduction" in  line_item or not line_item["deduction"] else line_item["deduction"]
+        

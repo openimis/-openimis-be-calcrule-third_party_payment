@@ -68,9 +68,9 @@ class ClaimToBillItemConverter(object):
 
     @classmethod
     def build_discount(cls, bill_line_item, claim):
-        if claim.claimed and claim.approved:
-            if claim.claimed >= claim.approved:
-                bill_line_item["deduction"] = claim.claimed - claim.approved
+        if claim.claimed and claim.remunerated:
+            if claim.claimed >= claim.remunerated:
+                bill_line_item["deduction"] = claim.claimed - claim.remunerated
 
     @classmethod
     def build_tax(cls, bill_line_item):
@@ -83,6 +83,6 @@ class ClaimToBillItemConverter(object):
             bill_line_item["amount_net"] = bill_line_item["quantity"] * bill_line_item["unit_price"]
         else:
             bill_line_item["amount_net"] = 0
-        if "discount" in bill_line_item:
+        if "deduction" in bill_line_item:
             bill_line_item["amount_net"] = bill_line_item["amount_net"] - bill_line_item["deduction"]
         bill_line_item["amount_total"] = bill_line_item["amount_net"]
