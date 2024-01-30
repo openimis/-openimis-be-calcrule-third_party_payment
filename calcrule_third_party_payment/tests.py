@@ -213,8 +213,8 @@ class BatchRunFeeForServiceTest(TestCase):
         self.assertEqual(item1.price_valuated, decimal.Decimal('201.15'))
         self.assertEqual(service1.price_valuated, decimal.Decimal('201.15'))
         self.assertEqual(claim1.remunerated, service1.price_valuated + item1.price_valuated)
-        self.assertNotEqual(Bill.objects.get(subject_id=batch_run.id), None)
-        self.assertNotEqual(BillItem.objects.get(bill__subject_id=batch_run.id), None)
+        self.assertNotEqual(Bill.objects.filter(subject_id=batch_run.id).first(), None)
+        self.assertNotEqual(BillItem.objects.filter(bill__subject_id=batch_run.id).first(), None)
 
         # tearDown
         # dedrem.delete() # already done if the test passed
