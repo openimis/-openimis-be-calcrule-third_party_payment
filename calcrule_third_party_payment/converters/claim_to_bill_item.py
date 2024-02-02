@@ -69,7 +69,7 @@ class ClaimToBillItemConverter(object):
     @classmethod
     def build_discount(cls, bill_line_item, claim):
         if claim.claimed and claim.remunerated:
-            if claim.claimed >= claim.remunerated:
+            if claim.claimed != claim.remunerated:
                 bill_line_item["deduction"] = claim.claimed - claim.remunerated
 
     @classmethod
