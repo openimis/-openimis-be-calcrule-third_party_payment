@@ -64,7 +64,7 @@ class ClaimToBillItemConverter(object):
 
     @classmethod
     def build_unit_price(cls, bill_line_item, claim):
-        bill_line_item["unit_price"] = claim.claimed
+        bill_line_item["unit_price"] = claim.claimed or claim.remunerated
 
     @classmethod
     def build_discount(cls, bill_line_item, claim):

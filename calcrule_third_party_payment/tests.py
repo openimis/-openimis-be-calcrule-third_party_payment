@@ -2,7 +2,7 @@ import calendar
 import datetime
 import decimal
 
-from claim.gql_mutations import validate_and_process_dedrem_claim
+from claim.services import submit_claim, validate_and_process_dedrem_claim
 from claim.models import (
     ClaimDedRem,
     Claim
@@ -174,13 +174,15 @@ class BatchRunFeeForServiceTest(TestCase):
             claim1, "A", custom_props={"price_asked": 100, "item_id": item.id, "qty_provided": 3,
                                        "price_origin": ProductItemOrService.ORIGIN_RELATIVE}
         )
-        errors = validate_and_process_dedrem_claim(claim1, self.user, True)
-        _, days_in_month = calendar.monthrange(claim1.validity_from.year, claim1.validity_from.month)
-        # add process stamp for claim to not use the process_stamp with now()
-        claim1.process_stamp = datetime.datetime(claim1.validity_from.year, claim1.validity_from.month,
-                                                 days_in_month - 1)
-        claim1.save()
+        claim1.refresh_from_db()
 
+        class DummyUser:
+            def __init__(self):
+                self.id_for_audit = 1
+        errors = submit_claim(claim1,DummyUser() )
+        errors += validate_and_process_dedrem_claim(claim1, DummyUser(), True)
+        claim1.process_stamp = claim1.validity_from
+        claim1.save()
         self.assertEqual(len(errors), 0)
         self.assertEqual(
             claim1.status,
@@ -193,7 +195,7 @@ class BatchRunFeeForServiceTest(TestCase):
         self.assertEquals(dedrem.rem_g, 500)  # 100*2 + 100*3
         # renumerated should be Null
         self.assertEqual(claim1.remunerated, None)
-
+        days_in_month = calendar.monthrange(claim1.validity_from.year, claim1.validity_from.month)[1]
         # When
         end_date = datetime.datetime(claim1.validity_from.year, claim1.validity_from.month, days_in_month)
         batch_run = do_process_batch(
