@@ -34,7 +34,8 @@ from invoice.services import BillService
 from product.models import Product
 from calcrule_third_party_payment.converters import ClaimsToBillConverter, ClaimToBillItemConverter
 from core.models import User
-
+import logging
+logger = logging.getLogger(__name__)
 
 class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
     version = 1
@@ -49,12 +50,12 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
     type = "account_payable"
     sub_type = "third_party_payment"
 
-    signal_get_rule_name = Signal(providing_args=[])
-    signal_get_rule_details = Signal(providing_args=[])
-    signal_get_param = Signal(providing_args=[])
-    signal_get_linked_class = Signal(providing_args=[])
-    signal_calculate_event = Signal(providing_args=[])
-    signal_convert_from_to = Signal(providing_args=[])
+    signal_get_rule_name = Signal([])
+    signal_get_rule_details = Signal([])
+    signal_get_param = Signal([])
+    signal_get_linked_class = Signal([])
+    signal_calculate_event = Signal([])
+    signal_convert_from_to = Signal([])
 
     @classmethod
     def ready(cls):
@@ -167,6 +168,7 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
     @classmethod
     def convert_batch(cls, **kwargs):
         work_data = kwargs.get('work_data', None)
+        logger.debug(f"creating bill for br {work_data['created_run']}")
         if work_data:
             user = User.objects.filter(i_user__id=work_data['created_run'].audit_user_id).first()
             # create queryset based on provided params
@@ -206,6 +208,8 @@ class ThirdPartyPaymentCalculationRule(AbsCalculationRule):
             for claim in instance.all():
                 bill_line_item = ClaimToBillItemConverter.to_bill_line_item_obj(claim=claim)
                 bill_line_items.append(bill_line_item)
+                ClaimsToBillConverter.build_amounts(bill_line_item, bill)
+            
             return {
                 'bill_data': bill,
                 'bill_data_line': bill_line_items,
