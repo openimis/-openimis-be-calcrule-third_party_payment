@@ -3,7 +3,7 @@ import inspect
 from django.apps import AppConfig
 from calculation.apps import CALCULATION_RULES
 
-from core.abs_calculation_rule import AbsCalculationRule
+from core.abs_calculation_rule import AbsStrategy
 
 
 MODULE_NAME = "calcrule_third_party_payment"
