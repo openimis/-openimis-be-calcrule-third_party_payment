@@ -2,7 +2,7 @@ import calendar
 import datetime
 import decimal
 
-from claim.services import submit_claim, validate_and_process_dedrem_claim
+from claim.services import ClaimSubmitService, processing_claim
 from claim.models import (
     ClaimDedRem,
     Claim
@@ -77,6 +77,7 @@ class BatchRunFeeForServiceTest(TestCase):
         user, user_created = create_or_update_core_user(
             user_uuid=None, username=_TEST_DATA_USER["username"], i_user=i_user)
         self.user = user
+        self.submit_service = ClaimSubmitService(self.user)
 
     def test_simple_batch(self):
         """
@@ -179,8 +180,8 @@ class BatchRunFeeForServiceTest(TestCase):
         class DummyUser:
             def __init__(self):
                 self.id_for_audit = 1
-        errors = submit_claim(claim1,DummyUser() )
-        errors += validate_and_process_dedrem_claim(claim1, DummyUser(), True)
+        submitted_claim, errors = self.submit_service.submit_claim(claim1,DummyUser() )
+        errors += processing_claim(claim1, DummyUser(), True)
         claim1.process_stamp = claim1.validity_from
         claim1.save()
         self.assertEqual(len(errors), 0)
