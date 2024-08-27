@@ -179,6 +179,7 @@ class BatchRunFeeForServiceTest(TestCase):
         class DummyUser:
             def __init__(self):
                 self.id_for_audit = 1
+                self.id = 1
         errors = submit_claim(claim1,DummyUser() )
         errors += validate_and_process_dedrem_claim(claim1, DummyUser(), True)
         claim1.process_stamp = claim1.validity_from
