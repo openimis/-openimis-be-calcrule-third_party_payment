@@ -3,6 +3,8 @@ import datetime
 import decimal
 
 from claim.services import submit_claim, validate_and_process_dedrem_claim
+from core.test_helpers import create_test_interactive_user
+
 from claim.models import (
     ClaimDedRem,
     Claim
@@ -56,6 +58,8 @@ from product.test_helpers import (
     create_test_product_item,
 )
 
+from datetime import date, timedelta
+
 _TEST_USER_NAME = "test_batch_run"
 _TEST_USER_PASSWORD = "test_batch_run"
 _TEST_DATA_USER = {
@@ -95,7 +99,7 @@ class BatchRunFeeForServiceTest(TestCase):
         item = create_test_item("A", custom_props={"name": "test_simple_batch"})
 
         product = create_test_product(
-            "BCUL0001",
+            "CRTPP",
             custom_props={
                 "name": "simplebatch",
                 "lump_sum": 10_000,
@@ -147,11 +151,20 @@ class BatchRunFeeForServiceTest(TestCase):
             item,
             custom_props={"price_origin": ProductItemOrService.ORIGIN_RELATIVE},
         )
-        policy = create_test_policy(product, insuree, link=True)
+        policy = create_test_policy(product, insuree, link=True, custom_props={
+                'effective_date': date.today() - timedelta(days=200),
+                'expiry_date': date.today() + timedelta(days=165),
+                'start_date': date.today() - timedelta(days=200),
+                'value': 1000
+                 })
         payer = create_test_payer()
         premium = create_test_premium(
-            policy_id=policy.id, custom_props={"payer_id": payer.id}
-        )
+            policy_id=policy.id, custom_props={
+                "payer_id": payer.id,
+                'amount': 1000,
+                'pay_date': date.today() - timedelta(days=200),
+                'created_date': datetime.datetime.now() - timedelta(days=200)
+        })
         test_item_price_list = create_test_item_pricelist(test_region.id)
         test_service_price_list = create_test_service_pricelist(test_region.id)
         # create hf and attach item/services pricelist
@@ -175,13 +188,10 @@ class BatchRunFeeForServiceTest(TestCase):
                                        "price_origin": ProductItemOrService.ORIGIN_RELATIVE}
         )
         claim1.refresh_from_db()
-
-        class DummyUser:
-            def __init__(self):
-                self.id_for_audit = 1
-                self.id = 1
-        errors = submit_claim(claim1,DummyUser() )
-        errors += validate_and_process_dedrem_claim(claim1, DummyUser(), True)
+        user = create_test_interactive_user()
+            
+        errors = submit_claim(claim1, user)
+        errors += validate_and_process_dedrem_claim(claim1, user, True)
         claim1.process_stamp = claim1.validity_from
         claim1.save()
         self.assertEqual(len(errors), 0)
@@ -213,35 +223,11 @@ class BatchRunFeeForServiceTest(TestCase):
         self.assertNotEqual(service1.price_valuated, service1.price_adjusted)
         # based on calculation - should be 201.15 per item and service
         # therefore renumerated = 402.30
-        self.assertEqual(item1.price_valuated, decimal.Decimal('201.15'))
-        self.assertEqual(service1.price_valuated, decimal.Decimal('201.15'))
-        self.assertEqual(claim1.remunerated, service1.price_valuated + item1.price_valuated)
+        expected_value = round(decimal.Decimal((1000 / 365 * days_in_month / 500 * 100)), 2)
+        self.assertEqual(item1.price_valuated, expected_value)
+        self.assertEqual(service1.price_valuated, expected_value)
+        self.assertEqual(claim1.valuated, service1.price_valuated + item1.price_valuated)
         self.assertNotEqual(Bill.objects.filter(subject_id=batch_run.id).first(), None)
         self.assertNotEqual(BillItem.objects.filter(bill__subject_id=batch_run.id).first(), None)
 
         # tearDown
-        # dedrem.delete() # already done if the test passed
-        premium.delete()
-        payer.delete()
-        delete_claim_with_itemsvc_dedrem_and_history(claim1)
-        policy.insuree_policies.first().delete()
-        policy.delete()
-        product_item.delete()
-        product_service.delete()
-        pricelist_detail1.delete()
-        pricelist_detail2.delete()
-        service.delete()
-        item.delete()
-        product.relativeindex_set.all().delete()
-        product.relative_distributions.all().delete()
-        PaymentPlan.objects.filter(id=payment_plan.id).delete()
-        product.delete()
-        if batch_run is not None:
-            BillItem.objects.filter(bill__subject_id=batch_run.id).delete()
-            Bill.objects.filter(subject_id=batch_run.id).delete()
-            batch_run.delete()
-        test_health_facility.delete()
-        test_service_price_list.delete()
-        test_item_price_list.delete()
-        test_district.delete()
-        test_region.delete()
