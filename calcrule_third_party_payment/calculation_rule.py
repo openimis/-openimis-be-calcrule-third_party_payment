@@ -2,7 +2,7 @@ import operator
 
 from django.contrib.contenttypes.models import ContentType
 
-from calcrule_third_party_payment.apps import AbsStrategy
+from core.abs_calculation_rule import AbsStrategy
 from calcrule_third_party_payment.config import (
     CLASS_RULE_PARAM_VALIDATION,
     DESCRIPTION_CONTRIBUTION_VALUATION,
@@ -30,7 +30,7 @@ from contribution_plan.utils import obtain_calcrule_params
 from core.signals import *
 from core import datetime
 from invoice.services import BillService
-
+from uuid import UUID
 from product.models import Product
 from calcrule_third_party_payment.converters import ClaimsToBillConverter, ClaimToBillItemConverter
 from core.models import User
@@ -63,9 +63,9 @@ class ThirdPartyPaymentCalculationRule(AbsStrategy):
         class_name = instance.__class__.__name__
         match = False
         if class_name == "ABCMeta":
-            match = str(cls.uuid) == str(instance.uuid)
-        elif class_name == "PaymentPlan":
-            match = cls.uuid == str(instance.calculation)
+            match = UUID(cls.uuid) == UUID(instance.uuid)
+        if class_name == "PaymentPlan":
+            match = UUID(cls.uuid) == UUID(instance.calculation)
         elif class_name == "BatchRun":
             # BatchRun → Product or Location if no prodcut
             match = cls.check_calculation(instance.location)
