@@ -63,9 +63,9 @@ class ThirdPartyPaymentCalculationRule(AbsStrategy):
         class_name = instance.__class__.__name__
         match = False
         if class_name == "ABCMeta":
-            match = UUID(cls.uuid) == UUID(instance.uuid)
+            match = UUID(str(cls.uuid)) == UUID(str(instance.uuid))
         if class_name == "PaymentPlan":
-            match = UUID(cls.uuid) == UUID(instance.calculation)
+            match = UUID(str(cls.uuid)) == UUID(str(instance.calculation))
         elif class_name == "BatchRun":
             # BatchRun → Product or Location if no prodcut
             match = cls.check_calculation(instance.location)
