@@ -23,8 +23,12 @@ from claim.models import (
 )
 from claim_batch.services import (
     get_hospital_claim_filter,
-    update_claim_valuated
+    update_claim_valuated,
+    update_claim_indexed_remunerated
 )
+
+
+
 from contribution_plan.models import PaymentPlan
 from contribution_plan.utils import obtain_calcrule_params
 from core.signals import *
@@ -102,8 +106,7 @@ class ThirdPartyPaymentCalculationRule(AbsStrategy):
         class_name = instance.__class__.__name__
         if instance.__class__.__name__ == "PaymentPlan":
             if context == "BatchPayment":
-                work_data = kwargs.get('work_data', None)
-                cls.convert_batch(work_data=work_data)
+                cls.convert_batch(instance, **kwargs)
                 return "conversion finished 'fee for service'"
             elif context == "BatchValuate":
                 cls._process_batch_valuation(instance, **kwargs)
@@ -146,37 +149,49 @@ class ThirdPartyPaymentCalculationRule(AbsStrategy):
         return results
 
     @classmethod
-    def convert_batch(cls, **kwargs):
-        work_data = kwargs.get('work_data', None)
+    def convert_batch(cls, instance, work_data=None, **kwargs):
+        pp_params = obtain_calcrule_params(instance, INTEGER_PARAMETERS, NONE_INTEGER_PARAMETERS)
+        work_data = cls.filter_work_data(work_data, pp_params)
         logger.debug(f"creating bill for br {work_data['created_run']}")
         if work_data:
             user = User.objects.filter(i_user__id=work_data['created_run'].audit_user_id).first()
             # create queryset based on provided params
-            claim_queryset = Claim.objects.filter(validity_to=None, batch_run=work_data['created_run'], health_facility__isnull=False)
-            claim_br_hf_list = list(claim_queryset.values('batch_run', 'health_facility').distinct())
+            claim_queryset = work_data['claims']
+            claim_br_hf_list = set(claim_queryset.values_list('health_facility', flat=True).distinct())
             for cbh in claim_br_hf_list:
                 claim_queryset_by_br_hf = Claim.objects.filter(
-                    batch_run__id=cbh["batch_run"], health_facility__id=cbh["health_facility"]
+                    batch_run=work_data['created_run'], 
+                    health_facility__id=cbh
                 )
                 # take all claims related to the same HF and batch_run to convert to bill
                 cls.run_convert(instance=claim_queryset_by_br_hf, convert_to='Bill', user=user)
+            update_claim_indexed_remunerated(
+                claim_queryset,
+                work_data['created_run'], 
+            )
 
     @classmethod
-    def _process_batch_valuation(cls, instance, **kwargs):
-        work_data = kwargs.get('work_data', None)
-        product = work_data["product"]
+    def _process_batch_valuation(cls, instance, work_data=None, **kwargs):
         pp_params = obtain_calcrule_params(instance, INTEGER_PARAMETERS, NONE_INTEGER_PARAMETERS)
         work_data["pp_params"] = pp_params
         # manage the in/out patient params
+        work_data = cls.filter_work_data(work_data, pp_params)
+        claim_batch_valuation(instance, work_data)
+        update_claim_valuated(work_data['claims'], work_data['created_run'])
+
+    @staticmethod
+    def filter_work_data(work_data, pp_params):
+        product = work_data.get('product')
         work_data["claims"] = work_data["claims"].filter(get_hospital_level_filter(pp_params)) \
             .filter(get_hospital_claim_filter(product.ceiling_interpretation, pp_params['claim_type']))
         work_data["items"] = work_data["items"].filter(get_hospital_level_filter(pp_params, prefix='claim__')) \
             .filter(get_hospital_claim_filter(product.ceiling_interpretation, pp_params['claim_type'], 'claim__'))
         work_data["services"] = work_data["services"].filter(get_hospital_level_filter(pp_params, prefix='claim__')) \
             .filter(get_hospital_claim_filter(product.ceiling_interpretation, pp_params['claim_type'], 'claim__'))
-        claim_batch_valuation(instance, work_data)
-        update_claim_valuated(work_data['claims'], work_data['created_run'])
 
+        return work_data
+    
+    
     @classmethod
     def _convert_claims(cls, instance):
         products = cls.__get_products_from_claim_queryset(claim_queryset=instance)
