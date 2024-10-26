@@ -1,6 +1,7 @@
 import operator
 
 from django.contrib.contenttypes.models import ContentType
+from django.db.models import Q
 
 from core.abs_calculation_rule import AbsStrategy
 from calcrule_third_party_payment.config import (
@@ -36,6 +37,7 @@ from core import datetime
 from invoice.services import BillService
 from uuid import UUID
 from product.models import Product
+from location.models import HealthFacility
 from calcrule_third_party_payment.converters import ClaimsToBillConverter, ClaimToBillItemConverter
 from core.models import User
 import logging
@@ -143,7 +145,7 @@ class ThirdPartyPaymentCalculationRule(AbsStrategy):
                 # get the model name from queryset
                 convert_from = instance.model.__name__
                 if convert_from == "Claim":
-                    results = cls._convert_claims(instance)
+                    results = cls._convert_claims(instance, **kwargs)
             results['user'] = kwargs.get('user', None)
             BillService.bill_create(convert_results=results)
         return results
@@ -157,14 +159,22 @@ class ThirdPartyPaymentCalculationRule(AbsStrategy):
             user = User.objects.filter(i_user__id=work_data['created_run'].audit_user_id).first()
             # create queryset based on provided params
             claim_queryset = work_data['claims']
-            claim_br_hf_list = set(claim_queryset.values_list('health_facility', flat=True).distinct())
+            claim_br_hf_list = HealthFacility.objects.filter(
+                id__in=set(claim_queryset.values_list('health_facility', flat=True).distinct())
+            )
             for cbh in claim_br_hf_list:
-                claim_queryset_by_br_hf = Claim.objects.filter(
-                    batch_run=work_data['created_run'], 
-                    health_facility__id=cbh
+                claim_queryset_by_br_hf = claim_queryset.filter(
+                    health_facility=cbh
                 )
                 # take all claims related to the same HF and batch_run to convert to bill
-                cls.run_convert(instance=claim_queryset_by_br_hf, convert_to='Bill', user=user)
+                cls.run_convert(
+                    instance=claim_queryset_by_br_hf,
+                    convert_to='Bill',
+                    user=user,
+                    health_facility=cbh,
+                    work_data=work_data,
+                    **kwargs
+                )
             update_claim_indexed_remunerated(
                 claim_queryset,
                 work_data['created_run'], 
@@ -193,17 +203,29 @@ class ThirdPartyPaymentCalculationRule(AbsStrategy):
     
     
     @classmethod
-    def _convert_claims(cls, instance):
+    def _convert_claims(cls, instance, **kwargs):
         products = cls.__get_products_from_claim_queryset(claim_queryset=instance)
         # take the MAX Product id from item and services
         if len(products) > 0:
             product = max(products, key=operator.attrgetter('id'))
-            bill = ClaimsToBillConverter.to_bill_obj(claims=instance, product=product)
-            bill_line_items = []
-            for claim in instance.all():
-                bill_line_item = ClaimToBillItemConverter.to_bill_line_item_obj(claim=claim)
-                bill_line_items.append(bill_line_item)
-                ClaimsToBillConverter.build_amounts(bill_line_item, bill)
+            work_data = kwargs.get("work_data")
+            health_facility = kwargs.get('health_facility')
+            if work_data:
+                batch_run = work_data.get('created_run')
+                
+                bill = ClaimsToBillConverter.to_bill_obj(
+                    claims=instance,
+                    product=product,
+                    health_facility=health_facility,
+                    batch_run=batch_run
+                )
+                bill_line_items = []
+                for claim in instance.all():
+                    bill_line_item = ClaimToBillItemConverter.to_bill_line_item_obj(claim=claim)
+                    bill_line_items.append(bill_line_item)
+                    ClaimsToBillConverter.build_amounts(bill_line_item, bill)
+            else:
+                raise Exception(_("no %s found, it is mandatory for this claim to bill converter" % 'batch_run'))
             
             return {
                 'bill_data': bill,
@@ -213,18 +235,9 @@ class ThirdPartyPaymentCalculationRule(AbsStrategy):
 
     @classmethod
     def __get_products_from_claim_queryset(cls, claim_queryset):
-        products = []
-        # get the clam product from claim item and claim services
-        for claim in claim_queryset.all():
-            for svc_item in [ClaimItem, ClaimService]:
-                claim_details = svc_item.objects \
-                    .filter(claim__id=claim.id) \
-                    .filter(claim__validity_to__isnull=True) \
-                    .filter(validity_to__isnull=True)
-                for cd in claim_details:
-                    if cd.product:
-                        products.append(cd.product)
-        return products
+        return Product.objects.filter(
+            Q(id__in=claim_queryset.values('items__product'))|Q(id__in=claim_queryset.values('services__product'))
+        )
 
     @classmethod
     def __get_products_from_claim(cls, claim):

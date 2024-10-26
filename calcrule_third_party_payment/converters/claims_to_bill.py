@@ -1,18 +1,21 @@
 from django.contrib.contenttypes.models import ContentType
 from invoice.apps import InvoiceConfig
 from invoice.models import Bill
+from django.utils.translation import gettext as _
 
 
 class ClaimsToBillConverter(object):
 
     @classmethod
-    def to_bill_obj(cls, claims, product):
+    def to_bill_obj(cls, claims, product, health_facility, batch_run):
         bill = {}
         # single bill = queryset of claims with the same batch run id and health facility
         # get the first claim because all claims from queryset has the same batch run id
-        batch_run = claims.first().batch_run
+        if not batch_run:
+            raise Exception(_("no %s found, it is mandatory for this claim to bill converter" % 'batch_run'))
         # get the first claim because all claims from queryset has the same health facility
-        health_facility = claims.first().health_facility
+        if not health_facility:
+            raise Exception(_("no %s found, it is mandatory for this claim to bill converter" % 'health_facility'))
         cls.build_subject(batch_run, bill)
         cls.build_thirdparty(health_facility, bill)
         cls.build_code(health_facility, product, batch_run, bill)
