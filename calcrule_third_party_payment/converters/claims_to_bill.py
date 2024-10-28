@@ -29,14 +29,14 @@ class ClaimsToBillConverter(object):
 
     @classmethod
     def build_subject(cls, batch_run, bill):
-        bill["subject_id"] = batch_run.id
-        bill['subject_type'] = ContentType.objects.get_for_model(batch_run)
+        bill["subject_type"] = ContentType.objects.get_for_model(batch_run)
+        bill["subject"] = batch_run
 
     @classmethod
     def build_thirdparty(cls, health_facility, bill):
         # get the first claim because all claims from queryset has the same health facility
-        bill["thirdparty_id"] = health_facility.id
-        bill['thirdparty_type'] = ContentType.objects.get_for_model(health_facility)
+        bill["thirdparty"] = health_facility
+        bill["thirdparty_type"] = ContentType.objects.get_for_model(health_facility)
 
     @classmethod
     def build_code(cls, health_facility, product, batch_run, bill):
