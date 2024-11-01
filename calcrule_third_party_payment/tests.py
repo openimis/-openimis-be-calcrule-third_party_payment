@@ -4,7 +4,7 @@ import decimal
 from datetime import date, timedelta
 
 from django.test import TestCase
-
+from claim.gql_mutations import processing_claim
 from claim.models import Claim, ClaimDedRem
 from claim.services import submit_claim, validate_and_process_dedrem_claim
 from claim.test_helpers import (
@@ -192,12 +192,8 @@ class BatchRunFeeForServiceTest(TestCase):
             },
         )
         claim1.refresh_from_db()
-        user = create_test_interactive_user()
-
-        errors = submit_claim(claim1, user)
-        errors += validate_and_process_dedrem_claim(claim1, user, True)
-        claim1.process_stamp = claim1.validity_from
-        claim1.save()
+        errors = errors = processing_claim(claim1, self.user, True)
+        claim1.refresh_from_db()
         self.assertEqual(len(errors), 0)
         self.assertEqual(
             claim1.status,
@@ -210,8 +206,9 @@ class BatchRunFeeForServiceTest(TestCase):
         self.assertEquals(dedrem.rem_g, 500)  # 100*2 + 100*3
         # renumerated should be Null
         self.assertEqual(claim1.remunerated, None)
+        claim1.refresh_from_db()
         days_in_month = calendar.monthrange(
-            claim1.validity_from.year, claim1.validity_from.month
+            claim1.date_processed.year, claim1.date_processed.month
         )[1]
         # When
         end_date = datetime.datetime(
