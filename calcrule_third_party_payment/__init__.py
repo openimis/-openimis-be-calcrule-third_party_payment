@@ -1,1 +1,1 @@
-default_app_config = 'calcrule_third_party_payment.apps.CalcruleThirdPartyPaymentConfig'
+default_app_config = "calcrule_third_party_payment.apps.CalcruleThirdPartyPaymentConfig"
